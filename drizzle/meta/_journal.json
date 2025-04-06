@@ -8,6 +8,20 @@
       "when": 1743922981134,
       "tag": "0000_chunky_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1743930323275,
+      "tag": "0001_complex_jean_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1743931032203,
+      "tag": "0002_nervous_james_howlett",
+      "breakpoints": true
     }
   ]
 }

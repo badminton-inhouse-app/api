@@ -19,15 +19,16 @@ export const experienceEnum = pgEnum('experience', [
 ]);
 
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey(),
-  email: text('email').notNull().unique(),
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  username: text('username').notNull().unique(),
+  email: text('email').unique(),
   password: text('password').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),
 });
 
 export const user_profiles = pgTable('user_profiles', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
   name: text('name').notNull(),
   userId: uuid('user_id').references(() => users.id),
   gender: genderEnum('gender').notNull().default('MALE'),
@@ -40,7 +41,7 @@ export const user_profiles = pgTable('user_profiles', {
 });
 
 export const centers = pgTable('centers', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
   address: text('address').notNull().default(''),
   district: text('district').notNull().default(''),
   city: text('city').notNull().default(''),
@@ -50,7 +51,7 @@ export const centers = pgTable('centers', {
 });
 
 export const courts = pgTable('courts', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
   centerId: uuid('center_id').references(() => centers.id),
   courtNo: integer('court_no').notNull().unique(),
   createdAt: timestamp('created_at').defaultNow(),
