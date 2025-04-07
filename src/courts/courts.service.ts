@@ -35,7 +35,15 @@ export class CourtsService {
       lockKey,
       lockValue
     );
-    return lockAcquired;
+
+    if (!lockAcquired) {
+      return null;
+    }
+
+    return {
+      lockKey,
+      lockValue,
+    };
   }
 
   async checkIfCourtAvailable(courtId: string) {
@@ -74,6 +82,8 @@ export class CourtsService {
       throw new Error('Court is already being booked. Please try again later.');
     }
 
+    const { lockKey, lockValue } = lockAcquired;
+
     try {
       const twoHoursInMilliseconds = 2 * 60 * 60 * 1000;
       const requestedStartTime = new Date(startTime);
@@ -100,6 +110,8 @@ export class CourtsService {
     } catch (err: any) {
       console.log('Error booking court: ', err);
       throw new Error('Failed to book court.');
+    } finally {
+      await this.redisService.releaseLock(lockKey, lockValue);
     }
   }
 }
