@@ -37,7 +37,7 @@ export const courtStatusEnum = pgEnum('court_status', [
   'MAINTENANCE',
 ]);
 
-export const orderStatusEnum = pgEnum('order_status', [
+export const bookingStatusEnum = pgEnum('booking_status', [
   'PENDING',
   'COMPLETED',
   'CANCELLED',
@@ -84,17 +84,17 @@ export const courts = pgTable('courts', {
   updatedAt: timestamp('updated_at'),
 });
 
-export const orders = pgTable('orders', {
+export const bookings = pgTable('bookings', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
-  court_id: uuid('court_id')
+  courtId: uuid('court_id')
     .notNull()
     .references(() => courts.id),
-  user_id: uuid('user_id')
+  userId: uuid('user_id')
     .notNull()
     .references(() => courts.id),
-  start_time: timestamp('start_time'),
-  end_time: timestamp('end_time'),
-  status: orderStatusEnum('status').default('PENDING').notNull(),
+  startTime: timestamp('start_time'),
+  endTime: timestamp('end_time'),
+  status: bookingStatusEnum('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),
 });

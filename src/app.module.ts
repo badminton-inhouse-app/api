@@ -10,6 +10,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { createKeyv, Keyv } from '@keyv/redis';
 import { CacheableMemory } from 'cacheable';
 import { CourtsModule } from './courts/courts.module';
+import { CentersModule } from './centers/centers.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CourtsModule } from './courts/courts.module';
     EmailModule,
     RedisModule,
     CourtsModule,
+    CentersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
