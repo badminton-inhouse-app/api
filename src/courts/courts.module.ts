@@ -8,5 +8,6 @@ import { DatabaseModule } from 'src/database/database.module';
   controllers: [CourtsController],
   providers: [CourtsService],
   imports: [RedisModule, DatabaseModule],
+  exports: [CourtsService],
 })
 export class CourtsModule {}

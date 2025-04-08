@@ -11,6 +11,8 @@ import { createKeyv, Keyv } from '@keyv/redis';
 import { CacheableMemory } from 'cacheable';
 import { CourtsModule } from './courts/courts.module';
 import { CentersModule } from './centers/centers.module';
+import { QueueModule } from './queue/queue.module';
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { CentersModule } from './centers/centers.module';
     RedisModule,
     CourtsModule,
     CentersModule,
+    QueueModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

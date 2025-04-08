@@ -9,4 +9,8 @@ export class BookingCenterDto {
   @IsNumber()
   @Type(() => Number)
   startTime: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  endTime: number;
 }

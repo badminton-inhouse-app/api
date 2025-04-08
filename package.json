@@ -31,6 +31,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "bcryptjs": "^3.0.2",
+    "bullmq": "^5.47.3",
     "cache-manager": "^6.4.2",
     "cacheable": "^1.8.10",
     "class-transformer": "^0.5.1",

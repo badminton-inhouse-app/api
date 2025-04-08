@@ -1,9 +1,8 @@
-import { courts } from './../database/schema/index';
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
 import { DRIZZLE } from 'src/database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
 import { RedisService } from '../redis/redis.service';
+import { ne } from 'drizzle-orm';
 
 @Injectable()
 export class CourtsService {
@@ -12,20 +11,19 @@ export class CourtsService {
     @Inject() private readonly redisService: RedisService
   ) {}
 
-  async checkIfCourtAvailable(courtId: string) {
-    try {
-      const court = await this.db.query.courts.findFirst({
-        where: eq(courts.id, courtId),
-      });
-
-      if (!court || court.status !== 'AVAILABLE') {
-        return false;
-      }
-
-      return court;
-    } catch (err: any) {
-      console.error('Error checking court availability: ', err);
-      return false;
-    }
+  async getOverlapBooking(courtId: string, starTime: number, endTime: number) {
+    const startTimeD = new Date(starTime);
+    const endTimeD = new Date(endTime);
+    return await this.db.query.bookings.findFirst({
+      where: (bookings, { eq, lte, gte, or, and }) =>
+        and(
+          eq(bookings.courtId, courtId),
+          ne(bookings.status, 'CANCELLED'),
+          or(
+            lte(bookings.startTime, startTimeD),
+            gte(bookings.endTime, endTimeD)
+          )
+        ),
+    });
   }
 }

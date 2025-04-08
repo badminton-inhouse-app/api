@@ -3,32 +3,53 @@ import { BookingCenterDto } from './dto/booking-center.dto';
 import { DrizzleDB } from '../database/types/drizzle';
 import { DRIZZLE } from '../database/database.module';
 import { RedisService } from '../redis/redis.service';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { courts, bookings } from '../database/schema';
+import { CourtsService } from '../courts/courts.service';
 
 @Injectable()
 export class CentersService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    @Inject() private readonly redisService: RedisService
+    @Inject() private readonly redisService: RedisService,
+    @Inject() private readonly courtsService: CourtsService
   ) {}
 
   // This method checks if the requested time is valid for booking.
   // parameter: startTime in milliseconds
   // return: boolean
-  checkIfTimeValid(startTime: number) {
-    const startDT = new Date(startTime);
-    // Check if the requested start time is in break period (from 11AM to 12PM)
-    if (startDT.getHours() === 11) {
+  checkIfTimeValid(startTime: number, endTime: number) {
+    /// Check if the start time is greater than or equal end time
+    if (startTime >= endTime) {
       return false;
     }
+
+    const startDT = new Date(startTime);
+    const endDT = new Date(endTime);
+    const minimumHours = 2;
+
+    // Check if the requested start time is in break period (from 11AM to 12PM)
+    if (startDT.getHours() === 11 || endDT.getHours() === 11) {
+      return false;
+    }
+
     // Check if the requested start time is in between 7AM and 11AM
-    if (startDT.getHours() < 7 || startDT.getHours() >= 23) {
+    if (
+      startDT.getHours() < 7 ||
+      startDT.getHours() >= 23 ||
+      endDT.getHours() < 7 ||
+      endDT.getHours() >= 23
+    ) {
+      return false;
+    }
+
+    // Check if the requested booking hours is less than 2 hours
+    if (endDT.getHours() - startDT.getHours() < minimumHours) {
       return false;
     }
   }
 
-  async getCenterAvailableCourts(centerId: string) {
+  async getAvailableCourtsByCenterId(centerId: string) {
     return await this.db
       .select()
       .from(courts)
@@ -49,7 +70,8 @@ export class CentersService {
     const lockValue = `${userId}-${Date.now()}`;
     const lockAcquired = await this.redisService.acquireLock(
       lockKey,
-      lockValue
+      lockValue,
+      3000
     );
 
     if (!lockAcquired) {
@@ -63,14 +85,14 @@ export class CentersService {
   }
 
   async booking(bookingCenterDto: BookingCenterDto, userId: string) {
-    const { centerId, startTime } = bookingCenterDto;
+    const { centerId, startTime, endTime } = bookingCenterDto;
 
-    if (this.checkIfTimeValid(startTime) === false) {
+    if (this.checkIfTimeValid(startTime, endTime) === false) {
       throw new Error('Invalid time. Please try again.');
     }
 
     // Check if any courts is available in the center
-    const availableCourts = await this.getCenterAvailableCourts(centerId);
+    const availableCourts = await this.getAvailableCourtsByCenterId(centerId);
 
     if (availableCourts.length === 0) {
       throw new Error('No courts available in this center.');
@@ -81,20 +103,15 @@ export class CentersService {
       const court = availableCourts[i];
       const courtId = court.id;
 
-      // Check if the court is already booked or reserved
-      const existingBookings = await this.db
-        .select()
-        .from(bookings)
-        .where(
-          and(
-            eq(bookings.courtId, courtId),
-            eq(bookings.startTime, new Date(startTime)),
-            inArray(bookings.status, ['PENDING', 'COMPLETED'])
-          )
-        );
+      // Check overlap booking for the court
+      const overlapBooking = await this.courtsService.getOverlapBooking(
+        courtId,
+        startTime,
+        endTime
+      );
 
-      // Skip this court if it is already booked
-      if (existingBookings.length > 0) {
+      // Skip this court if it is overlapping with another booking
+      if (overlapBooking) {
         continue;
       }
 
@@ -113,13 +130,10 @@ export class CentersService {
 
       // If lock is acquired, proceed with booking and break the loop, remove the lock from Redis
       const { lockKey, lockValue } = lockAcquired;
-      const twoHoursInMilliseconds = 2 * 60 * 60 * 1000;
-      const requestedStartTime = new Date(startTime);
-      const requestedEndTime = new Date(
-        requestedStartTime.getTime() + twoHoursInMilliseconds
-      );
+      const startTimeD = new Date(startTime);
+      const endTimeD = new Date(endTime);
 
-      await new Promise((resolve) => setTimeout(resolve, 1000000)); // Simulate booking delay
+      await new Promise((resolve) => setTimeout(resolve, 20000)); // Simulate booking delay
 
       try {
         const result = await this.db
@@ -127,8 +141,8 @@ export class CentersService {
           .values({
             courtId: courtId,
             userId: userId,
-            startTime: requestedStartTime,
-            endTime: requestedEndTime,
+            startTime: startTimeD,
+            endTime: endTimeD,
             status: 'COMPLETED',
           })
           .returning();
