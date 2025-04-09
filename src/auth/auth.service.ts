@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 export class AuthService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    @Inject() private readonly configService: ConfigService
+    private readonly configService: ConfigService
   ) {}
 
   generateJWT(userId: string) {

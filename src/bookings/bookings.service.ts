@@ -11,9 +11,48 @@ import { BookingCenterDto } from './dto/booking-center.dto';
 export class BookingsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    @Inject() private readonly redisService: RedisService,
-    @Inject() private readonly courtsService: CourtsService
+    private readonly redisService: RedisService,
+    private readonly courtsService: CourtsService
   ) {}
+
+  async findById(id: string) {
+    return await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) => eq(bookings.id, id),
+    });
+  }
+
+  async updateStatus(
+    bookingId: string,
+    userId: string,
+    newStatus: 'CANCELLED' | 'COMPLETED' | 'PENDING'
+  ) {
+    const booking = await this.findById(bookingId);
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    if (booking.userId !== userId) {
+      throw new Error('You are not authorized to cancel this booking');
+    }
+
+    try {
+      const result = await this.db
+        .update(bookings)
+        .set({ status: newStatus })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+
+      if (result.length === 0) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      return false;
+    }
+  }
 
   // This method checks if the requested time is valid for booking.
   // parameter: startTime in milliseconds

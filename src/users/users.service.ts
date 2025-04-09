@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import * as bcryptjs from 'bcryptjs';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
@@ -15,15 +15,23 @@ export class UsersService {
     return user;
   }
 
-  async getUserByUsername(username: string) {
+  async findByUsername(username: string) {
     const result = await this.db.query.users.findFirst({
       where: eq(users.username, username),
     });
     return result;
   }
 
+  async findById(id: string) {
+    const result = await this.db.query.users.findFirst({
+      where: eq(users.id, id),
+    });
+    return result;
+  }
+
   async createUser(registerDto: RegisterDto): Promise<{
     status: 'success' | 'error';
+    statusCode: number;
     error: string | null;
   }> {
     try {
@@ -35,6 +43,7 @@ export class UsersService {
       });
       return {
         status: 'success',
+        statusCode: 201,
         error: null,
       };
     } catch (err: any) {
@@ -42,11 +51,13 @@ export class UsersService {
       if (err.message.includes('users_username_unique')) {
         return {
           status: 'error',
+          statusCode: HttpStatus.CONFLICT,
           error: 'Username already exists',
         };
       }
       return {
         status: 'error',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         error: 'An unexpected error occurred. Please try again later.',
       };
     }
@@ -55,7 +66,7 @@ export class UsersService {
   async login(registerDto: RegisterDto) {
     try {
       const { password, username } = registerDto;
-      const user = await this.getUserByUsername(username);
+      const user = await this.findByUsername(username);
       if (!user) {
         return {
           status: 'error',

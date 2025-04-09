@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { UsersService } from './users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -12,20 +20,22 @@ export class UsersController {
   }
 
   @Get('/:username')
-  async getUserByUsername(@Param('username') username: string) {
-    return this.usersService.getUserByUsername(username);
+  async findByUsername(@Param('username') username: string) {
+    return this.usersService.findByUsername(username);
   }
 
   @Post('/register')
   async registerUser(@Body() registerDto: RegisterDto, @Res() res: Response) {
     const response = await this.usersService.createUser(registerDto);
+
     if (response.status === 'error') {
-      return res.status(500).json({
+      return res.status(response.statusCode).json({
         status: response.status,
         error: response.error,
       });
     }
-    return res.status(201).json({
+
+    return res.status(HttpStatus.CREATED).json({
       status: response.status,
       message: 'User created successfully',
     });
@@ -40,7 +50,7 @@ export class UsersController {
         error: response.error,
       });
     }
-    return res.status(200).json({
+    return res.status(HttpStatus.OK).json({
       status: response.status,
       message: 'User logged in successfully',
       user: response.user,
