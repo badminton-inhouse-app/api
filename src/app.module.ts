@@ -13,6 +13,7 @@ import { CourtsModule } from './courts/courts.module';
 import { CentersModule } from './centers/centers.module';
 import { QueueModule } from './queue/queue.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { BookingsModule } from './bookings/bookings.module';
     CentersModule,
     QueueModule,
     BookingsModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
