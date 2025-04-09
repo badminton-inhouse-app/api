@@ -6,13 +6,15 @@ import { and, eq, ne } from 'drizzle-orm';
 import { RedisService } from '../redis/redis.service';
 import { CourtsService } from '../courts/courts.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly redisService: RedisService,
-    private readonly courtsService: CourtsService
+    private readonly courtsService: CourtsService,
+    private readonly queueService: QueueService
   ) {}
 
   async findById(id: string) {
@@ -205,6 +207,11 @@ export class BookingsService {
         if (result.length === 0) {
           throw new Error('Failed to book court.');
         }
+
+        // Add the booking to the queue for cancellation after 30 minutes without payment
+        const delayMs = 30 * 60 * 1000; // 30 minutes in milliseconds
+        await this.queueService.addCancelJob(result[0].id, delayMs);
+
         return result;
       } catch (err: any) {
         console.log('Error booking court: ', err);

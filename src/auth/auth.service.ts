@@ -1,44 +1,48 @@
 import { Inject, Injectable } from '@nestjs/common';
-import jwt from 'jsonwebtoken';
+import * as jsonwebtoken from 'jsonwebtoken';
 import * as bcryptjs from 'bcryptjs';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
 import { ERROR_MESSAGE } from '../constants';
-import { ConfigService } from '@nestjs/config';
+import { JWT_CONFIG } from '../config/jwt';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly configService: ConfigService
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   generateJWT(userId: string) {
-    const rfTokenSecret = this.configService.get<string>(
-      'REFRESH_TOKEN_SECRET'
-    );
+    const rfTokenSecret = JWT_CONFIG.REFRESH_TOKEN_SECRET;
     if (!rfTokenSecret) {
+      console.log(
+        'REFRESH_TOKEN_SECRET is not defined in environment variables.'
+      );
       throw new Error(ERROR_MESSAGE.INTERNAL_SERVER_ERROR);
     }
 
-    const accessTokenSecret = this.configService.get<string>(
-      'ACCESS_TOKEN_SECRET'
-    );
+    const accessTokenSecret = JWT_CONFIG.ACCESS_TOKEN_SECRET;
     if (!accessTokenSecret) {
+      console.log(
+        'ACCESS_TOKEN_SECRET is not defined in environment variables.'
+      );
       throw new Error(ERROR_MESSAGE.INTERNAL_SERVER_ERROR);
     }
 
-    const refreshToken = jwt.sign({ userId }, rfTokenSecret, {
-      expiresIn: '7d',
-    });
-    const accessToken = jwt.sign({ userId }, accessTokenSecret, {
-      expiresIn: '15m',
-    });
+    try {
+      const refreshToken = jsonwebtoken.sign({ userId }, rfTokenSecret, {
+        expiresIn: JWT_CONFIG.REFRESH_TOKEN_EXPIRATION / 1000,
+      });
+      const accessToken = jsonwebtoken.sign({ userId }, accessTokenSecret, {
+        expiresIn: JWT_CONFIG.ACCESS_TOKEN_EXPIRATION / 1000,
+      });
 
-    return {
-      refreshToken,
-      accessToken,
-    };
+      return {
+        refreshToken,
+        accessToken,
+      };
+    } catch (error: any) {
+      console.log('Error generating JWT: ' + error.message);
+      throw new Error(ERROR_MESSAGE.INTERNAL_SERVER_ERROR);
+    }
   }
 
   async login(username: string, password: string) {
@@ -55,7 +59,6 @@ export class AuthService {
       if (!isValidPassword) {
         throw new Error(ERROR_MESSAGE.INVALID_USERNAME_PASSWOR);
       }
-
       const token = this.generateJWT(user.id);
       return token;
     } catch (error: any) {

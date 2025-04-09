@@ -6,15 +6,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import jsonwebtoken from 'jsonwebtoken';
+import * as jsonwebtoken from 'jsonwebtoken';
 
 @Injectable()
-export default class AuthGuard implements CanActivate {
+export default class AccessTokenGuard implements CanActivate {
   constructor(@Inject() private readonly configService: ConfigService) {}
 
   canActivate(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest();
-
+    const request: any = context.switchToHttp().getRequest();
     const accessToken = request.cookies.accessToken;
     if (!accessToken) {
       console.log('Access token is not provided.');

@@ -7,8 +7,8 @@ import { BookingsService } from '../bookings/bookings.service';
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
-  private queue: Queue;
-  private worker: Worker;
+  private bookingCancelQueue: Queue;
+  private bookingCancelWorker: Worker;
 
   constructor(
     private readonly configService: ConfigService,
@@ -25,14 +25,12 @@ export class QueueService implements OnModuleDestroy {
       maxRetriesPerRequest: null,
     });
 
-    this.addQueueHandler('booking-cancel', redis);
-  }
+    this.bookingCancelQueue = new Queue('booking-cancel', {
+      connection: redis,
+    });
 
-  addQueueHandler(name: string, redis: IORedis) {
-    this.queue = new Queue(name, { connection: redis });
-
-    this.worker = new Worker(
-      name,
+    this.bookingCancelWorker = new Worker(
+      'booking-cancel',
       async (job: Job) => {
         const { bookingId } = job.data;
         await this.handleCancelBooking(bookingId);
@@ -42,7 +40,11 @@ export class QueueService implements OnModuleDestroy {
   }
 
   async addCancelJob(bookingId: string, delayMs: number = 20 * 60 * 1000) {
-    await this.queue.add('booking-cancel', { bookingId }, { delay: delayMs });
+    await this.bookingCancelQueue.add(
+      'cancelBooking',
+      { bookingId },
+      { delay: delayMs }
+    );
   }
 
   private async handleCancelBooking(bookingId: string) {
@@ -63,7 +65,7 @@ export class QueueService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.worker.close();
-    await this.queue.close();
+    await this.bookingCancelWorker.close();
+    await this.bookingCancelQueue.close();
   }
 }

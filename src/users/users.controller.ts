@@ -10,6 +10,7 @@ import {
 import { Response } from 'express';
 import { UsersService } from './users.service';
 import { RegisterDto } from './dto/register.dto';
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -38,22 +39,6 @@ export class UsersController {
     return res.status(HttpStatus.CREATED).json({
       status: response.status,
       message: 'User created successfully',
-    });
-  }
-
-  @Post('/login')
-  async login(@Body() registerDto: RegisterDto, @Res() res: Response) {
-    const response = await this.usersService.login(registerDto);
-    if (response.status === 'error') {
-      return res.status(500).json({
-        status: response.status,
-        error: response.error,
-      });
-    }
-    return res.status(HttpStatus.OK).json({
-      status: response.status,
-      message: 'User logged in successfully',
-      user: response.user,
     });
   }
 }

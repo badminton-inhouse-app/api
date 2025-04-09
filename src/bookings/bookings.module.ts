@@ -4,11 +4,12 @@ import { BookingsController } from './bookings.controller';
 import { DatabaseModule } from '../database/database.module';
 import { RedisModule } from '../redis/redis.module';
 import { CourtsModule } from '../courts/courts.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
   controllers: [BookingsController],
   providers: [BookingsService],
-  imports: [DatabaseModule, RedisModule, CourtsModule],
+  imports: [DatabaseModule, RedisModule, CourtsModule, QueueModule],
   exports: [BookingsService],
 })
 export class BookingsModule {}

@@ -62,35 +62,4 @@ export class UsersService {
       };
     }
   }
-
-  async login(registerDto: RegisterDto) {
-    try {
-      const { password, username } = registerDto;
-      const user = await this.findByUsername(username);
-      if (!user) {
-        return {
-          status: 'error',
-          error: 'User not found',
-        };
-      }
-      const isPasswordValid = await bcryptjs.compare(password, user.password);
-      if (!isPasswordValid) {
-        return {
-          status: 'error',
-          error: 'Invalid password',
-        };
-      }
-      return {
-        status: 'success',
-        error: null,
-        user,
-      };
-    } catch (err: any) {
-      console.error('Error logging in:', err.message);
-      return {
-        status: 'error',
-        error: 'An unexpected error occurred. Please try again later.',
-      };
-    }
-  }
 }
