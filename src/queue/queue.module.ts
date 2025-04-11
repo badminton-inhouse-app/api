@@ -6,5 +6,6 @@ import { BookingsModule } from '../bookings/bookings.module';
   controllers: [],
   providers: [QueueService],
   imports: [BookingsModule],
+  exports: [QueueService],
 })
 export class QueueModule {}
