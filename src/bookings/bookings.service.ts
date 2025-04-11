@@ -1,10 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
 import { bookings, courts } from '../database/schema';
 import { and, eq, ne } from 'drizzle-orm';
 import { RedisService } from '../redis/redis.service';
-import { CourtsService } from '../courts/courts.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
 import { QueueService } from '../queue/queue.service';
 
@@ -13,7 +12,7 @@ export class BookingsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly redisService: RedisService,
-    private readonly courtsService: CourtsService,
+    @Inject(forwardRef(() => QueueService)) // 👈 use forwardRef here if needed
     private readonly queueService: QueueService
   ) {}
 

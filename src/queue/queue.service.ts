@@ -1,5 +1,9 @@
-// src/queue/booking-cancel-queue.service.ts
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Queue, Worker, Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import IORedis from 'ioredis';
@@ -12,6 +16,7 @@ export class QueueService implements OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => BookingsService))
     private readonly bookingsService: BookingsService
   ) {
     const redisUrl = this.configService.get<string>('REDIS_URL');
