@@ -8,6 +8,7 @@ import {
   varchar,
   decimal,
   date,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 export const genderEnum = pgEnum('gender', ['MALE', 'FEMALE']);
@@ -41,6 +42,29 @@ export const bookingStatusEnum = pgEnum('booking_status', [
   'PENDING',
   'COMPLETED',
   'CANCELLED',
+]);
+
+export const userPointTypeEnum = pgEnum('user_point_type', [
+  'BOOKING', //by hours per booking time
+  'ADDTIONAL_SPENDING', //like spending on additional services: drink, food, etc
+  'REDEEM', //points deducted when redeem voucher
+]);
+
+export const discountTypeEnum = pgEnum('discount_type', [
+  'FIXED', //discount is fixed amount, eg: discount 20000 VND
+  'PERCENTAGE', //discount is percentage, eg: discount 10% on total bill
+]);
+
+export const voucherStatusEnum = pgEnum('voucher_status', [
+  'CLAIMED', //voucher is claimed by user
+  'USED', //voucher is used by user
+  'EXPIRED', //voucher is expired
+]);
+
+export const voucherTypeEnum = pgEnum('voucher_type', [
+  'TOTAL_BOOKING_PRICE',
+  'PER_BOOKING_HOUR_PRICE',
+  'ADD_FREE_HOURS',
 ]);
 
 export const users = pgTable('users', {
@@ -102,7 +126,7 @@ export const bookings = pgTable('bookings', {
 export const invoices = pgTable('invoices', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(),
-  customerId: integer('customer_id').notNull(),
+  userId: uuid('user_id').references(() => users.id),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   status: varchar('status', { length: 20 }).notNull().default('pending'),
   dueDate: date('due_date').notNull(),
@@ -123,4 +147,40 @@ export const payments = pgTable('payments', {
   amountPaid: decimal('amount_paid', { precision: 10, scale: 2 }).notNull(),
   paidAt: timestamp('paid_at', { withTimezone: false }).notNull().defaultNow(),
   status: varchar('status', { length: 20 }).notNull().default('completed'), // completed, pending, failed
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at'),
+});
+
+export const userPoints = pgTable('user_points', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  userId: uuid('user_id').references(() => users.id),
+  points: integer('points').notNull().default(0),
+  type: userPointTypeEnum('type').notNull().default('BOOKING'),
+  metadata: jsonb('metadata').default({}), // e.g., bookingId, additionalServiceId, etc.
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at'),
+});
+
+export const vouchers = pgTable('vouchers', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  name: text('name').notNull().default(''),
+  desc: text('name').notNull().default(''),
+  type: voucherTypeEnum('type').notNull().default('TOTAL_BOOKING_PRICE'),
+  requiredPoints: integer('required_points').notNull().default(0),
+  discountType: discountTypeEnum('discount_type').notNull().default('FIXED'),
+  discountValue: decimal('discount_value').notNull().default('0'),
+  validFrom: timestamp('valid_from').notNull(),
+  validTo: timestamp('valid_to').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at'),
+});
+
+export const userVouchers = pgTable('user_vouchers', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  userId: uuid('user_id').references(() => users.id),
+  voucherId: uuid('voucher_id').references(() => vouchers.id),
+  status: voucherStatusEnum('status').default('CLAIMED').notNull(),
+  claimedAt: timestamp('claimed_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at'),
 });

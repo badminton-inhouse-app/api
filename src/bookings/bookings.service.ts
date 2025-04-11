@@ -1,4 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
 import { bookings, courts } from '../database/schema';
@@ -219,5 +221,43 @@ export class BookingsService {
         await this.redisService.releaseLock(lockKey, lockValue);
       }
     }
+  }
+
+  async genQRCode(bookingId: string, userId: string) {
+    let svg = '';
+    const booking = await this.db.select().from(bookings);
+
+    // if (booking.length === 0) return null;
+
+    const qrCodeData = {
+      bookingId: 'b123',
+      courtId: 'c123',
+      userId,
+    };
+
+    const jsonData = JSON.stringify(qrCodeData);
+    const signature = crypto
+      .createHmac('sha256', 'test')
+      .update(jsonData)
+      .digest('hex');
+
+    const payloadString = JSON.stringify({
+      signature,
+      data: qrCodeData,
+    });
+
+    QRCode.toString(
+      JSON.stringify(payloadString),
+      { type: 'svg', errorCorrectionLevel: 'H' },
+      (err, _svg) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        svg = _svg;
+      }
+    );
+
+    return svg;
   }
 }

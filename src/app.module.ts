@@ -14,6 +14,9 @@ import { CentersModule } from './centers/centers.module';
 import { QueueModule } from './queue/queue.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AuthModule } from './auth/auth.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
+import { VoucherModule } from './voucher/voucher.module';
+import { RewardsModule } from './rewards/rewards.module';
 
 @Module({
   imports: [
@@ -40,6 +43,9 @@ import { AuthModule } from './auth/auth.module';
     QueueModule,
     BookingsModule,
     AuthModule,
+    LoyaltyModule,
+    VoucherModule,
+    RewardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
