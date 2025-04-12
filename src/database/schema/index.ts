@@ -31,6 +31,7 @@ export const paymentMethodEnum = pgEnum('payment_method', [
   'MASTER_CARD',
   'PAYPAL',
   'INTERNET_BANKING',
+  'STRIPE',
 ]);
 
 export const courtStatusEnum = pgEnum('court_status', [
@@ -64,7 +65,7 @@ export const voucherStatusEnum = pgEnum('voucher_status', [
 export const voucherTypeEnum = pgEnum('voucher_type', [
   'TOTAL_BOOKING_PRICE',
   'PER_BOOKING_HOUR_PRICE',
-  'ADD_FREE_HOURS',
+  'ADD_FREE_HOURS', //meaning if user book 2 hours, he/she will only need to pay for 1 hour
 ]);
 
 export const users = pgTable('users', {
@@ -118,6 +119,7 @@ export const bookings = pgTable('bookings', {
     .references(() => courts.id),
   startTime: timestamp('start_time'),
   endTime: timestamp('end_time'),
+  paymentSessionId: varchar('payment_session_id').unique(),
   status: bookingStatusEnum('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),

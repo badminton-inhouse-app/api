@@ -1,0 +1,1 @@
+ALTER TYPE "public"."user_point_type" ADD VALUE 'REDEEM';

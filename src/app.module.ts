@@ -17,6 +17,8 @@ import { AuthModule } from './auth/auth.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { VoucherModule } from './voucher/voucher.module';
 import { RewardsModule } from './rewards/rewards.module';
+import { PaymentsModule } from './payments/payments.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { RewardsModule } from './rewards/rewards.module';
     LoyaltyModule,
     VoucherModule,
     RewardsModule,
+    PaymentsModule,
+    StripeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

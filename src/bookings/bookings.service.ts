@@ -191,8 +191,6 @@ export class BookingsService {
       const startTimeD = new Date(startTime);
       const endTimeD = new Date(endTime);
 
-      await new Promise((resolve) => setTimeout(resolve, 20000)); // Simulate booking delay
-
       try {
         const result = await this.db
           .insert(bookings)
@@ -201,7 +199,7 @@ export class BookingsService {
             userId: userId,
             startTime: startTimeD,
             endTime: endTimeD,
-            status: 'COMPLETED',
+            status: 'PENDING',
           })
           .returning();
 
@@ -223,10 +221,17 @@ export class BookingsService {
     }
   }
 
+  async findByPaymentSessionId(paymentSessionId: string) {
+    return await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) =>
+        eq(bookings.paymentSessionId, paymentSessionId),
+    });
+  }
+
   async genQRCode(bookingId: string, userId: string) {
     let svg = '';
     const booking = await this.db.select().from(bookings);
-
+    console.log('booking: ', booking);
     // if (booking.length === 0) return null;
 
     const qrCodeData = {

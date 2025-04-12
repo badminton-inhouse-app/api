@@ -1,0 +1,2 @@
+CREATE TYPE "public"."voucher_type" AS ENUM('TOTAL_BOOKING_PRICE', 'PER_BOOKING_HOUR_PRICE', 'ADD_FREE_HOURS');--> statement-breakpoint
+ALTER TABLE "vouchers" ADD COLUMN "type" "voucher_type" DEFAULT 'TOTAL_BOOKING_PRICE' NOT NULL;
