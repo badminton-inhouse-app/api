@@ -22,7 +22,9 @@ export class StripeService {
       console.log('STRIPE_SECRET_KEY is not defined in environment variables.');
       return;
     }
-    this.stripe = new Stripe(stripeSecretKey, {});
+    this.stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2025-03-31.basil',
+    });
   }
 
   async createSession(
@@ -31,16 +33,17 @@ export class StripeService {
     currency: string = 'vnd'
   ) {
     try {
+      console.log('Creating session for bookingId: ', amount);
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: amount,
         currency,
+        payment_method_types: ['card'],
         metadata: {
           bookingId,
         },
       });
-
       return {
-        paymentSessionId: `${PaymentMethod.STRIPE}_${paymentIntent.id}`,
+        paymentSessionId: paymentIntent.id,
         clientSecret: paymentIntent.client_secret,
       };
     } catch (err: any) {
@@ -57,17 +60,26 @@ export class StripeService {
     return this.stripe.paymentIntents.retrieve(paymentIntentId);
   }
 
-  async handleStripeWebhook(sig: string, payload: Buffer) {
+  async handleWebhook(sig: string, payload: Buffer) {
     // Construct Stripe Event
+    const stripeWebhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET'
+    );
+    if (!stripeWebhookSecret) {
+      console.log(
+        'STRIPE_WEBHOOK_SECRET is not defined in environment variables.'
+      );
+      return;
+    }
     const event = this.stripe.webhooks.constructEvent(
       payload,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      stripeWebhookSecret
     );
 
     // Retrieve Updated PaymentIntent
-    let paymentIntent = event.data.object as Stripe.PaymentIntent;
-    paymentIntent = await this.retrieveSession(paymentIntent.id);
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    // paymentIntent = await this.retrieveSession(paymentIntent.id);
 
     if (!paymentIntent) {
       console.warn('Payment session not found');

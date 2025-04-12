@@ -19,6 +19,7 @@ import { VoucherModule } from './voucher/voucher.module';
 import { RewardsModule } from './rewards/rewards.module';
 import { PaymentsModule } from './payments/payments.module';
 import { StripeModule } from './stripe/stripe.module';
+import { GeolocationModule } from './geolocation/geolocation.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { StripeModule } from './stripe/stripe.module';
     RewardsModule,
     PaymentsModule,
     StripeModule,
+    GeolocationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

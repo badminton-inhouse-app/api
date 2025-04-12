@@ -96,6 +96,8 @@ export const centers = pgTable('centers', {
   district: text('district').notNull().default(''),
   city: text('city').notNull().default(''),
   phoneNo: text('phone_no').notNull().default(''),
+  lat: decimal('lat', { precision: 9, scale: 6 }).notNull().default('0'),
+  lng: decimal('lng', { precision: 9, scale: 6 }).notNull().default('0'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),
 });

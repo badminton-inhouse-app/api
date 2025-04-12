@@ -1,16 +1,47 @@
-import { BadRequestException, Controller, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { StripeService } from './stripe.service';
+import { Response, Request } from 'express';
 
 @Controller('stripe')
 export class StripeController {
   constructor(private readonly stripeService: StripeService) {}
 
-  @Post('webhooks/stripe')
-  async handleStripeWebhook(@Req() req: any) {
+  @Post('/webhook')
+  async handleStripeWebhook(@Req() req: Request) {
+    console.log(123);
+    // console.log(req.headers);
+    // console.log(Buffer.from(JSON.stringify(req.body)));
     if (!req.body) {
       throw new BadRequestException('Request body is missing.');
     }
-    const sig = req.headers['stripe-signature'];
-    await this.stripeService.handleStripeWebhook(sig, req.body);
+    const sig = req.headers['stripe-signature'] as string;
+    if (!sig) {
+      throw new BadRequestException('Stripe signature is missing.');
+    }
+    await this.stripeService.handleWebhook(sig, req.body);
+  }
+
+  @Post('/create-session')
+  async createSession(@Req() req: any, @Res() res: Response) {
+    const bookingId = req.body.bookingId;
+    const amount = req.body.amount;
+    const currency = req.body.currency;
+    console.log(req.body);
+    const session = await this.stripeService.createSession(
+      bookingId,
+      amount,
+      currency
+    );
+    if (!session) {
+      throw new BadRequestException('Failed to create session');
+    }
+    return res.status(HttpStatus.CREATED).json(session);
   }
 }
