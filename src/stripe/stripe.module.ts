@@ -3,12 +3,10 @@ import { StripeService } from './stripe.service';
 import { StripeController } from './stripe.controller';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '../database/database.module';
-import { BookingsModule } from '../bookings/bookings.module';
-
 @Module({
   controllers: [StripeController],
   providers: [StripeService],
   exports: [StripeService],
-  imports: [ConfigModule, DatabaseModule, BookingsModule],
+  imports: [ConfigModule, DatabaseModule],
 })
 export class StripeModule {}

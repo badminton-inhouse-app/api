@@ -42,14 +42,17 @@ export class LoyaltyService {
       (voucher) => !ownedVoucherIds.includes(voucher.id)
     );
 
-    for (const voucher of newVouchers) {
-      await this.db.insert(userVouchers).values({
-        userId,
-        voucherId: voucher.id,
-        status: 'CLAIMED',
-        claimedAt: new Date(),
-      });
-    }
+    const now = new Date();
+    const values = newVouchers.map((voucher) => ({
+      userId,
+      voucherId: voucher.id,
+      status: 'CLAIMED' as any,
+      claimedAt: now,
+    }));
+
+    await this.db.transaction(async (trx) => {
+      await trx.insert(userVouchers).values(values);
+    });
   }
 
   async addPointsForBooking(userId: string, bookingId: string) {

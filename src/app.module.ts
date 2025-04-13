@@ -20,10 +20,12 @@ import { RewardsModule } from './rewards/rewards.module';
 import { PaymentsModule } from './payments/payments.module';
 import { StripeModule } from './stripe/stripe.module';
 import { GeolocationModule } from './geolocation/geolocation.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    EventEmitterModule.forRoot(),
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => {

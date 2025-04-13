@@ -118,10 +118,9 @@ export const bookings = pgTable('bookings', {
     .references(() => courts.id),
   userId: uuid('user_id')
     .notNull()
-    .references(() => courts.id),
-  startTime: timestamp('start_time'),
-  endTime: timestamp('end_time'),
-  paymentSessionId: varchar('payment_session_id').unique(),
+    .references(() => users.id),
+  startTime: timestamp('start_time').notNull(),
+  endTime: timestamp('end_time').notNull(),
   status: bookingStatusEnum('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),
@@ -151,6 +150,22 @@ export const payments = pgTable('payments', {
   amountPaid: decimal('amount_paid', { precision: 10, scale: 2 }).notNull(),
   paidAt: timestamp('paid_at', { withTimezone: false }).notNull().defaultNow(),
   status: varchar('status', { length: 20 }).notNull().default('completed'), // completed, pending, failed
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at'),
+});
+
+export const paymentSessions = pgTable('payment_sessions', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  userId: uuid('user_id')
+    .references(() => users.id)
+    .notNull(),
+  bookingId: uuid('booking_id')
+    .references(() => bookings.id)
+    .notNull(),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum('payment_method').notNull(),
+  paymentSessionId: varchar('payment_session_id').unique(),
+  status: bookingStatusEnum('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),
 });

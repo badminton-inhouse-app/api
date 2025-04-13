@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
-import { eq } from 'drizzle-orm';
 import { ConfigService } from '@nestjs/config';
 import { PaymentMethod } from '../constants/enums';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
-import { bookings } from '../database/schema';
-import { BookingsService } from '../bookings/bookings.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PaymentCompletedEvent } from '../payments/events/payment-completed.event';
+import { PaymentFailedEvent } from '../payments/events/payment-failed.event';
 
 @Injectable()
 export class StripeService {
@@ -15,7 +15,7 @@ export class StripeService {
   constructor(
     @Inject() private readonly configService: ConfigService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly bookingsService: BookingsService
+    private readonly eventEmitter: EventEmitter2
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
@@ -82,6 +82,21 @@ export class StripeService {
     // paymentIntent = await this.retrieveSession(paymentIntent.id);
 
     if (!paymentIntent) {
+      console.warn('Payment intent not found');
+      return {
+        message: 'Payment intent not found',
+        received: false,
+      };
+    }
+
+    // Retrieve payment session by payment session id
+    const paymentSessionId = `${PaymentMethod.STRIPE}_${paymentIntent.id}`;
+    const paymentSession = await this.db.query.paymentSessions.findFirst({
+      where: (paymentSessions, { eq }) =>
+        eq(paymentSessions.paymentSessionId, paymentSessionId),
+    });
+
+    if (!paymentSession) {
       console.warn('Payment session not found');
       return {
         message: 'Payment session not found',
@@ -89,43 +104,32 @@ export class StripeService {
       };
     }
 
-    // Retrieve Booking by PaymentSessionId
-    const paymentSessionId = `${PaymentMethod.STRIPE}_${paymentIntent.id}`;
-    const booking =
-      await this.bookingsService.findByPaymentSessionId(paymentSessionId);
-
-    if (!booking) {
-      console.warn('Booking not found');
-      return {
-        message: 'Booking not found',
-        received: false,
-      };
-    }
-
     // Handle Payment Success
     if (event.type === 'payment_intent.succeeded') {
-      if (['COMPLETED', 'CANCELLED'].includes(booking.status)) {
+      if (['COMPLETED', 'CANCELLED'].includes(paymentSession.status)) {
         console.warn(
-          `Booking with id ${booking.id} already ${booking.status.toLowerCase()}`
+          `Payment session with id ${paymentSession.id} already ${paymentSession.status.toLowerCase()}`
         );
         return {
-          message: `Booking already ${booking.status.toLowerCase()}`,
+          message: `Payment session already ${paymentSession.status.toLowerCase()}`,
           received: false,
         };
       }
 
-      await this.db
-        .update(bookings)
-        .set({ status: 'COMPLETED' })
-        .where(eq(bookings.paymentSessionId, paymentSessionId));
+      // Emit payment completed event
+      this.eventEmitter.emit(
+        'payment.completed',
+        new PaymentCompletedEvent(paymentSessionId)
+      );
     }
 
     // Handle Payment Failure
     if (event.type === 'payment_intent.payment_failed') {
-      await this.db
-        .update(bookings)
-        .set({ status: 'CANCELLED' })
-        .where(eq(bookings.id, booking.id));
+      // Update payment session status to CANCELLED
+      this.eventEmitter.emit(
+        'payment.failed',
+        new PaymentFailedEvent(paymentSessionId)
+      );
     }
 
     return { received: true };

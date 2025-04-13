@@ -8,6 +8,10 @@ import { and, eq, ne } from 'drizzle-orm';
 import { RedisService } from '../redis/redis.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
 import { QueueService } from '../queue/queue.service';
+import { CreateBookingPaymentSessionDto } from './dto/create-booking-payment-session.dto';
+import { PaymentsService } from '../payments/payments.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookingCompletedEvent } from './events/booking-completed.event';
 
 @Injectable()
 export class BookingsService {
@@ -15,7 +19,9 @@ export class BookingsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => QueueService)) // 👈 use forwardRef here if needed
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
+    private readonly paymentsService: PaymentsService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async findById(id: string) {
@@ -57,8 +63,56 @@ export class BookingsService {
     }
   }
 
+  async updateStatusByPaymentSessionId(
+    paymentSessionId: string,
+    newStatus: 'CANCELLED' | 'COMPLETED' | 'PENDING'
+  ) {
+    const paymentSession = await this.db.query.paymentSessions.findFirst({
+      where: (paymentSessions, { eq }) =>
+        eq(paymentSessions.paymentSessionId, paymentSessionId),
+    });
+
+    if (!paymentSession) {
+      throw new Error('Payment session not found');
+    }
+
+    const booking = await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) => eq(bookings.id, paymentSession.bookingId),
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    try {
+      const result = await this.db
+        .update(bookings)
+        .set({ status: newStatus })
+        .where(eq(bookings.id, booking.id))
+        .returning();
+
+      if (result.length === 0) {
+        return false;
+      }
+
+      if (newStatus === 'COMPLETED') {
+        // Emit event for payment completed
+        this.eventEmitter.emit(
+          'booking.completed',
+          new BookingCompletedEvent(booking.id, booking.userId)
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      return false;
+    }
+  }
+
   // This method checks if the requested time is valid for booking.
   // parameter: startTime in milliseconds
+  // parameter: endTime in milliseconds
   // return: boolean
   checkIfTimeValid(startTime: number, endTime: number) {
     /// Check if the start time is greater than or equal end time
@@ -69,7 +123,6 @@ export class BookingsService {
     const startDT = new Date(startTime);
     const endDT = new Date(endTime);
     const minimumHours = 2;
-
     // Check if the requested start time is in break period (from 11AM to 12PM)
     if (startDT.getHours() === 11 || endDT.getHours() === 11) {
       return false;
@@ -155,7 +208,7 @@ export class BookingsService {
     if (availableCourts.length === 0) {
       throw new Error('No courts available in this center.');
     }
-
+    let result: any[] = [];
     // Iterate through available courts and try to acquire a lock
     for (let i = 0; i < availableCourts.length; i++) {
       const court = availableCourts[i];
@@ -192,7 +245,7 @@ export class BookingsService {
       const endTimeD = new Date(endTime);
 
       try {
-        const result = await this.db
+        result = await this.db
           .insert(bookings)
           .values({
             courtId: courtId,
@@ -210,8 +263,7 @@ export class BookingsService {
         // Add the booking to the queue for cancellation after 30 minutes without payment
         const delayMs = 30 * 60 * 1000; // 30 minutes in milliseconds
         await this.queueService.addCancelJob(result[0].id, delayMs);
-
-        return result;
+        break;
       } catch (err: any) {
         console.log('Error booking court: ', err);
         throw new Error('Failed to book court.');
@@ -219,13 +271,7 @@ export class BookingsService {
         await this.redisService.releaseLock(lockKey, lockValue);
       }
     }
-  }
-
-  async findByPaymentSessionId(paymentSessionId: string) {
-    return await this.db.query.bookings.findFirst({
-      where: (bookings, { eq }) =>
-        eq(bookings.paymentSessionId, paymentSessionId),
-    });
+    return result;
   }
 
   async genQRCode(bookingId: string, userId: string) {
@@ -264,5 +310,40 @@ export class BookingsService {
     );
 
     return svg;
+  }
+
+  async createBookingPaymentSession(
+    userId: string,
+    bookingId: string,
+    body: CreateBookingPaymentSessionDto
+  ) {
+    const booking = await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) => eq(bookings.id, bookingId),
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+    if (booking.userId !== userId) {
+      throw new Error('You are not authorized to create payment session');
+    }
+    if (booking.status !== 'PENDING') {
+      throw new Error('Booking is not pending');
+    }
+
+    const { paymentMethod } = body;
+    const amount = 100000; // Replace with actual amount calculate from formula
+
+    try {
+      return await this.paymentsService.createSession(
+        userId,
+        bookingId,
+        amount,
+        paymentMethod
+      );
+    } catch (err: any) {
+      console.log('Error creating payment session:', err.message);
+      throw new Error('Failed to create payment session.');
+    }
   }
 }

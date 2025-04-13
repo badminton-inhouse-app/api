@@ -43,6 +43,48 @@
       "when": 1744386660249,
       "tag": "0005_equal_betty_brant",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1744462427266,
+      "tag": "0006_acoustic_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1744467706950,
+      "tag": "0007_brief_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1744510837958,
+      "tag": "0008_sour_gwen_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1744513307509,
+      "tag": "0009_gray_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1744515235879,
+      "tag": "0010_faulty_doctor_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1744558660315,
+      "tag": "0011_perpetual_solo",
+      "breakpoints": true
     }
   ]
 }
