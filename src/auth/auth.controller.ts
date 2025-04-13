@@ -87,7 +87,7 @@ export class AuthController {
   }
 
   @UseGuards(RefreshTokenGuard)
-  @Get('/me')
+  @Get('/refresh-token')
   async refreshToken(@Req() request: any, @Res() res: Response) {
     const userId = request.userId;
     if (!userId) {
