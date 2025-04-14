@@ -47,12 +47,11 @@ export class BookingsController {
     @Res() res: Response,
     @Query('action') action: 'view' | 'download'
   ) {
-    const userId = '123'; // Replace with actual user ID from token
+    const userId = '321';
     const qrCode = await this.bookingsService.genQRCode(bookingId, userId);
     if (!qrCode) return res.status(404).send('No booking found');
     res.setHeader('Content-Type', 'image/svg+xml');
     if (action && action === 'download') {
-      console.log(123);
       res.setHeader(
         'Content-Disposition',
         'attachment; filename="my-image.svg"'

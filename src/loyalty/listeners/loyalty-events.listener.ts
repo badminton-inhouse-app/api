@@ -10,6 +10,7 @@ export class LoyaltyEventsListener {
   @OnEvent('booking.completed')
   async handlePaymentCompleted(event: BookingCompletedEvent) {
     const { bookingId, userId } = event;
+    console.log('Loyalty event received: ', event);
     await this.loyaltyService.addPointsForBooking(userId, bookingId);
   }
 }

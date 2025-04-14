@@ -10,6 +10,7 @@ export class BookingsEventsListener {
 
   @OnEvent('payment.completed')
   async handlePaymentCompleted(event: PaymentCompletedEvent) {
+    console.log('Payment completed event received: ', event);
     await this.bookingsService.updateStatusByPaymentSessionId(
       event.paymentSessionId,
       'COMPLETED'

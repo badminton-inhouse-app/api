@@ -15,9 +15,6 @@ export class StripeController {
 
   @Post('/webhook')
   async handleStripeWebhook(@Req() req: Request) {
-    console.log(123);
-    // console.log(req.headers);
-    // console.log(Buffer.from(JSON.stringify(req.body)));
     if (!req.body) {
       throw new BadRequestException('Request body is missing.');
     }

@@ -277,7 +277,6 @@ export class BookingsService {
   async genQRCode(bookingId: string, userId: string) {
     let svg = '';
     const booking = await this.db.select().from(bookings);
-    console.log('booking: ', booking);
     // if (booking.length === 0) return null;
 
     const qrCodeData = {

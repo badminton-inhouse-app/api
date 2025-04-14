@@ -50,6 +50,8 @@ export class LoyaltyService {
       claimedAt: now,
     }));
 
+    if (values.length === 0) return;
+
     await this.db.transaction(async (trx) => {
       await trx.insert(userVouchers).values(values);
     });

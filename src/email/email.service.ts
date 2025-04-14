@@ -1,8 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
+import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
+import * as moment from 'moment';
+import { BookingsService } from '../bookings/bookings.service';
+import { console } from 'inspector';
 
 @Injectable()
 export class EmailService {
@@ -10,12 +15,13 @@ export class EmailService {
 
   constructor(
     @Inject() private readonly configService: ConfigService,
-    @Inject(DRIZZLE) private readonly db: DrizzleDB
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly bookingsService: BookingsService
   ) {
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST'),
-      port: this.configService.get<number>('SMTP_PORT'),
-      secure: this.configService.get<boolean>('SMTP_SECURE', false),
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: this.configService.get<string>('SMTP_USER'),
         pass: this.configService.get<string>('SMTP_PASS'),
@@ -76,62 +82,100 @@ export class EmailService {
       return;
     }
 
-    const subject = 'Booking Completed';
-    const html = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-        <meta charset="UTF-8">
-        <title>Booking Confirmation</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <tr>
-            <td style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
-                <h2 style="margin: 0;">Booking Confirmed! 🏸</h2>
-            </td>
-            </tr>
-            <tr>
-            <td style="padding: 20px;">
-                <p>Hi ${user.email.split('@')[0]},</p>
-                <p>Your badminton court booking is confirmed! Here are your details:</p>
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
-                 <tr>
-                    <td><strong>Center address:</strong></td>
-                    <td>${center.address}, ${center.district}, ${center.city}</td>
-                </tr>
-                <tr>
-                    <td><strong>Court No:</strong></td>
-                    <td>${court.courtNo}</td>
-                </tr>
-                <tr>
-                    <td><strong>Date:</strong></td>
-                    <td>${new Date(booking.startTime).toISOString()}</td>
-                </tr>
-                <tr>
-                    <td><strong>Time:</strong></td>
-                    <td>${new Date(booking.startTime).getHours()}} – ${new Date(booking.endTime).getHours()}}</td>
-                </tr>
-                <tr>
-                    <td><strong>Booking ID:</strong></td>
-                    <td>${booking.id}</td>
-                </tr>
-                </table>
-                <p>Please arrive 10 minutes early. For questions, contact us at <a href="mailto: support@badminton.com" style="color: #4CAF50;">support@badminton.com</a>.</p>
-                <p>See you on the court!</p>
-                <p style="margin-top: 30px;">Thanks,<br><strong>Badminton Team</strong></p>
-            </td>
-            </tr>
-            <tr>
-            <td style="background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #777;">
-                © ${new Date().getFullYear()} Badminton. All rights reserved.
-            </td>
-            </tr>
-        </table>
-        </body>
-        </html>
-    `;
+    const qrCodeData = {
+      bookingId: booking.id,
+      courtId: court.id,
+      userId,
+    };
 
-    return this.sendMail(user.email, subject, html);
+    const jsonData = JSON.stringify(qrCodeData);
+    const signature = crypto
+      .createHmac('sha256', 'qrcode_secret')
+      .update(jsonData)
+      .digest('hex');
+
+    const payloadString = JSON.stringify({
+      signature,
+      data: qrCodeData,
+    });
+
+    // Generate QR code asynchronously using await
+    try {
+      const svg = await QRCode.toString(JSON.stringify(payloadString), {
+        type: 'svg',
+        errorCorrectionLevel: 'H',
+      });
+
+      const qrImgDataURL = await QRCode.toDataURL(
+        JSON.stringify(payloadString),
+        {
+          errorCorrectionLevel: 'H',
+          type: 'image/png',
+        }
+      );
+
+      console.log('QR Code Data URL: ', qrImgDataURL);
+
+      const subject = 'Booking Completed';
+      const html = `
+      <!DOCTYPE html>
+      <html lang="vi">
+      <head>
+      <meta charset="UTF-8">
+      <title>Xác Nhận Đặt Sân</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <tr>
+          <td style="background-color: #4CAF50; padding: 20px; text-align: center; color: white;">
+              <h2 style="margin: 0;">Đặt Sân Thành Công! 🏸</h2>
+          </td>
+          </tr>
+          <tr>
+          <td style="padding: 20px;">
+              <p>Chào ${user.email.split('@')[0]},</p>
+              <p>Chúng tôi xác nhận rằng bạn đã đặt sân cầu lông thành công! Thông tin chi tiết như sau:</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                  <tr>
+                      <td><strong>Địa chỉ trung tâm:</strong></td>
+                      <td>${center.address}, ${center.district}, ${center.city}</td>
+                  </tr>
+                  <tr>
+                      <td><strong>Số sân:</strong></td>
+                      <td>${court.courtNo < 10 ? `0${court.courtNo}` : `${court.courtNo}`}</td>
+                  </tr>
+                  <tr>
+                      <td><strong>Ngày:</strong></td>
+                      <td>${moment(booking.startTime).format('DD/MM/YYYY')}</td>
+                  </tr>
+                  <tr>
+                      <td><strong>Thời gian chơi:</strong></td>
+                      <td>${new Date(booking.startTime).getHours()} giờ tới ${new Date(booking.endTime).getHours()} giờ</td>
+                  </tr>
+                  <tr>
+                      <td><strong>Mã QR (vui lòng đưa mã QR khi tới sân để được xác nhận):</strong></td>
+                      <td>${svg}</td>
+                  </tr>
+              </table>
+              <p>Vui lòng đến trước giờ chơi 10 phút. Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua <a href="mailto:support@badminton.com" style="color: #4CAF50;">support@badminton.com</a>.</p>
+              <p>Hẹn gặp bạn tại sân!</p>
+              <p style="margin-top: 30px;">Trân trọng,<br><strong>Đội ngũ Badminton</strong></p>
+          </td>
+          </tr>
+          <tr>
+          <td style="background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #777;">
+              © ${new Date().getFullYear()} Badminton. Đã đăng ký bản quyền.
+          </td>
+          </tr>
+      </table>
+      </body>
+      </html>
+    `;
+      console.log(html);
+      // Send email after the QR code is ready
+      this.sendMail(user.email, subject, html);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+    }
   }
 }
