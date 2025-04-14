@@ -41,25 +41,6 @@ export class BookingsController {
     }
   }
 
-  @Get('/:bookingId/qrcode')
-  async generateQRCode(
-    @Param('bookingId') bookingId: string,
-    @Res() res: Response,
-    @Query('action') action: 'view' | 'download'
-  ) {
-    const userId = '321';
-    const qrCode = await this.bookingsService.genQRCode(bookingId, userId);
-    if (!qrCode) return res.status(404).send('No booking found');
-    res.setHeader('Content-Type', 'image/svg+xml');
-    if (action && action === 'download') {
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="my-image.svg"'
-      );
-    }
-    res.send(qrCode);
-  }
-
   @Post('/:bookingId/pay')
   async createBookingPaymentSession(
     @Param('bookingId') bookingId: string,
@@ -83,5 +64,38 @@ export class BookingsController {
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .json({ message: err.message, status: 'error' });
     }
+  }
+
+  @Get('/verify')
+  async verifyPayment(
+    @Query('sig') sig: string,
+    @Query('bookingId') bookingId: string,
+    @Query('userId') userId: string,
+    @Res() res: Response
+  ) {
+    if (!sig || !bookingId || !userId) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        message: 'Missing required parameters',
+        status: 'error',
+      });
+    }
+    const result = await this.bookingsService.verifyBookingBySig(
+      userId,
+      bookingId,
+      sig
+    );
+
+    if (!result) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        message: 'Cannot verify booking',
+        status: 'error',
+      });
+    }
+
+    return res.status(HttpStatus.OK).json({
+      message: 'Booking verified',
+      data: result,
+      status: 'success',
+    });
   }
 }

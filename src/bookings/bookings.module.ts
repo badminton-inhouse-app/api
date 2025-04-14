@@ -1,3 +1,4 @@
+import { ConfigModule } from '@nestjs/config';
 import { Module } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
@@ -8,7 +9,7 @@ import { BookingsEventsListener } from './listeners/bookings-events.listener';
 @Module({
   controllers: [BookingsController],
   providers: [BookingsService, BookingsEventsListener],
-  imports: [DatabaseModule, PaymentsModule],
+  imports: [ConfigModule, DatabaseModule, PaymentsModule],
   exports: [BookingsService],
 })
 export class BookingsModule {}

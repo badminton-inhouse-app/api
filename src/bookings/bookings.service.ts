@@ -12,10 +12,13 @@ import { CreateBookingPaymentSessionDto } from './dto/create-booking-payment-ses
 import { PaymentsService } from '../payments/payments.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookingCompletedEvent } from './events/booking-completed.event';
+import { ConfigService } from '@nestjs/config';
+import * as moment from 'moment';
 
 @Injectable()
 export class BookingsService {
   constructor(
+    @Inject() private readonly configService: ConfigService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly redisService: RedisService,
     @Inject(forwardRef(() => QueueService)) // 👈 use forwardRef here if needed
@@ -274,43 +277,6 @@ export class BookingsService {
     return result;
   }
 
-  async genQRCode(bookingId: string, userId: string) {
-    let svg = '';
-    const booking = await this.db.select().from(bookings);
-    // if (booking.length === 0) return null;
-
-    const qrCodeData = {
-      bookingId: 'b123',
-      courtId: 'c123',
-      userId,
-    };
-
-    const jsonData = JSON.stringify(qrCodeData);
-    const signature = crypto
-      .createHmac('sha256', 'test')
-      .update(jsonData)
-      .digest('hex');
-
-    const payloadString = JSON.stringify({
-      signature,
-      data: qrCodeData,
-    });
-
-    QRCode.toString(
-      JSON.stringify(payloadString),
-      { type: 'svg', errorCorrectionLevel: 'H' },
-      (err, _svg) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        svg = _svg;
-      }
-    );
-
-    return svg;
-  }
-
   async createBookingPaymentSession(
     userId: string,
     bookingId: string,
@@ -344,5 +310,112 @@ export class BookingsService {
       console.log('Error creating payment session:', err.message);
       throw new Error('Failed to create payment session.');
     }
+  }
+
+  generateSignature(secret: string, jsonData: any) {
+    return crypto.createHmac('sha256', secret).update(jsonData).digest('hex');
+  }
+
+  async getBookingVerifyQRDataURL(userId: string, bookingId: string) {
+    const qrCodeSignatureSecret = this.configService.get<string>(
+      'BOOKING_QR_CODE_SIGNATURE_SECRET'
+    );
+    if (!qrCodeSignatureSecret) {
+      throw new Error('QR Code signature secret is not configured.');
+    }
+
+    const qrCodeData = {
+      bookingId,
+      userId,
+    };
+
+    const jsonData = JSON.stringify(qrCodeData);
+    const signature = this.generateSignature(qrCodeSignatureSecret, jsonData);
+
+    console.log('Signature:', signature);
+
+    const url = `https://www.localhost:3000/api/bookings/verify?sig=${signature}&bookingId=${bookingId}&userId=${userId}`;
+    // const url = 'https://www.google.com';
+
+    const qrImgDataURL = await QRCode.toDataURL(url);
+
+    return qrImgDataURL;
+  }
+
+  async verifyBookingBySig(
+    userId: string,
+    bookingId: string,
+    receivedSignature: string
+  ) {
+    const qrCodeSignatureSecret = this.configService.get<string>(
+      'BOOKING_QR_CODE_SIGNATURE_SECRET'
+    );
+    if (!qrCodeSignatureSecret) {
+      throw new Error('QR Code signature secret is not configured.');
+    }
+
+    const jsonData = JSON.stringify({
+      bookingId,
+      userId,
+    });
+
+    const expectedSignature = this.generateSignature(
+      qrCodeSignatureSecret,
+      jsonData
+    );
+
+    const bufferExpected = Buffer.from(expectedSignature, 'hex');
+    const bufferReceived = Buffer.from(receivedSignature, 'hex');
+
+    if (bufferExpected.length !== bufferReceived.length) {
+      return null;
+    }
+
+    //Use `timingSafeEqual` to prevent timing attacks
+    const isValid = crypto.timingSafeEqual(bufferExpected, bufferReceived);
+
+    if (!isValid) {
+      return null;
+    }
+
+    const booking = await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) => eq(bookings.id, bookingId),
+    });
+
+    if (!booking) {
+      return null;
+    }
+
+    const court = await this.db.query.courts.findFirst({
+      where: (courts, { eq }) => eq(courts.id, booking.courtId),
+    });
+
+    if (!court) {
+      return null;
+    }
+
+    const center = await this.db.query.centers.findFirst({
+      where: (centers, { eq }) => eq(centers.id, court.centerId),
+    });
+
+    if (!center) {
+      return null;
+    }
+
+    if (booking.userId !== userId) {
+      return null;
+    }
+
+    return {
+      center: {
+        address: center.address,
+        district: center.district,
+        city: center.city,
+      },
+      court_no: court.courtNo,
+      start_time: moment(booking.startTime).format('HH:mm DD-MM-YYYY'),
+      end_time: moment(booking.endTime).format('HH:mm DD-MM-YYYY'),
+      status: booking.status,
+    };
   }
 }

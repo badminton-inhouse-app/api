@@ -1,6 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import * as crypto from 'crypto';
-import * as QRCode from 'qrcode';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { DRIZZLE } from '../database/database.module';
@@ -37,6 +35,7 @@ export class EmailService {
       to,
       subject,
       html,
+      attachDataUrls: true,
     };
 
     try {
@@ -53,71 +52,36 @@ export class EmailService {
     const user = await this.db.query.users.findFirst({
       where: (users, { eq }) => eq(users.id, userId),
     });
-
     if (!user || !user.email) {
-      return;
+      throw new Error('User not found');
     }
 
     const booking = await this.db.query.bookings.findFirst({
       where: (bookings, { eq }) => eq(bookings.id, bookingId),
     });
-
     if (!booking) {
-      return;
+      throw new Error('Booking not found');
     }
 
     const court = await this.db.query.courts.findFirst({
       where: (courts, { eq }) => eq(courts.id, booking.courtId),
     });
-
     if (!court) {
-      return;
+      throw new Error('Court not found');
     }
 
     const center = await this.db.query.centers.findFirst({
       where: (centers, { eq }) => eq(centers.id, court.centerId),
     });
-
     if (!center) {
-      return;
+      throw new Error('Center not found');
     }
 
-    const qrCodeData = {
-      bookingId: booking.id,
-      courtId: court.id,
-      userId,
-    };
+    const qrCodeImgDataURL =
+      await this.bookingsService.getBookingVerifyQRDataURL(userId, bookingId);
 
-    const jsonData = JSON.stringify(qrCodeData);
-    const signature = crypto
-      .createHmac('sha256', 'qrcode_secret')
-      .update(jsonData)
-      .digest('hex');
-
-    const payloadString = JSON.stringify({
-      signature,
-      data: qrCodeData,
-    });
-
-    // Generate QR code asynchronously using await
-    try {
-      const svg = await QRCode.toString(JSON.stringify(payloadString), {
-        type: 'svg',
-        errorCorrectionLevel: 'H',
-      });
-
-      const qrImgDataURL = await QRCode.toDataURL(
-        JSON.stringify(payloadString),
-        {
-          errorCorrectionLevel: 'H',
-          type: 'image/png',
-        }
-      );
-
-      console.log('QR Code Data URL: ', qrImgDataURL);
-
-      const subject = 'Booking Completed';
-      const html = `
+    const subject = 'Xác Nhận Đặt Sân Thành Công';
+    const html = `
       <!DOCTYPE html>
       <html lang="vi">
       <head>
@@ -134,27 +98,43 @@ export class EmailService {
           <tr>
           <td style="padding: 20px;">
               <p>Chào ${user.email.split('@')[0]},</p>
-              <p>Chúng tôi xác nhận rằng bạn đã đặt sân cầu lông thành công! Thông tin chi tiết như sau:</p>
+              <p>Chúng tôi xác nhận rằng bạn đã đặt sân thành công! Thông tin chi tiết như sau:</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
                   <tr>
                       <td><strong>Địa chỉ trung tâm:</strong></td>
-                      <td>${center.address}, ${center.district}, ${center.city}</td>
                   </tr>
                   <tr>
-                      <td><strong>Số sân:</strong></td>
-                      <td>${court.courtNo < 10 ? `0${court.courtNo}` : `${court.courtNo}`}</td>
+                      <td>${center.address}, quận ${center.district}, ${center.city}</td>
                   </tr>
+                  <br />
+                  <tr>
+                      <td><strong>Sân số:</strong></td>
+                  </tr>
+                  <tr>
+                      <td>${court.courtNo < 10 ? `0${court.courtNo}` : `${court.courtNo}`}</td>                  
+                  </tr>
+                  <br />
                   <tr>
                       <td><strong>Ngày:</strong></td>
-                      <td>${moment(booking.startTime).format('DD/MM/YYYY')}</td>
                   </tr>
+                  <tr>
+                      <td>${moment(booking.startTime).format('DD/MM/YYYY')}</td>                  
+                  </tr>
+                  <br />
                   <tr>
                       <td><strong>Thời gian chơi:</strong></td>
-                      <td>${new Date(booking.startTime).getHours()} giờ tới ${new Date(booking.endTime).getHours()} giờ</td>
                   </tr>
                   <tr>
+                      <td>${new Date(booking.startTime).getHours()} giờ - ${new Date(booking.endTime).getHours()} giờ</td>                 
+                  </tr>
+                  <br />
+                  <tr>
                       <td><strong>Mã QR (vui lòng đưa mã QR khi tới sân để được xác nhận):</strong></td>
-                      <td>${svg}</td>
+                  </tr>
+                  <tr>
+                      <td style="width: 100%;">
+                        <img style="width: 150px; height: 150px;" src="${qrCodeImgDataURL}" />
+                      </td>
                   </tr>
               </table>
               <p>Vui lòng đến trước giờ chơi 10 phút. Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua <a href="mailto:support@badminton.com" style="color: #4CAF50;">support@badminton.com</a>.</p>
@@ -171,11 +151,8 @@ export class EmailService {
       </body>
       </html>
     `;
-      console.log(html);
-      // Send email after the QR code is ready
-      this.sendMail(user.email, subject, html);
-    } catch (error) {
-      console.error('Error generating QR code:', error);
-    }
+
+    // Send email after the QR code is ready
+    await this.sendMail(user.email, subject, html);
   }
 }

@@ -9,6 +9,7 @@ export class EmailEventsListener {
 
   @OnEvent('booking.completed')
   async handleBookingCompletedEvent(event: BookingCompletedEvent) {
+    console.log('Received BookingCompletedEvent At EmailEventListener:', event);
     await this.emailService.sendBookingCompletedEmail(
       event.userId,
       event.bookingId
