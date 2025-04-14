@@ -77,7 +77,7 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at'),
 });
 
-export const user_profiles = pgTable('user_profiles', {
+export const userProfiles = pgTable('user_profiles', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   name: text('name').notNull(),
   userId: uuid('user_id').references(() => users.id),
@@ -104,7 +104,9 @@ export const centers = pgTable('centers', {
 
 export const courts = pgTable('courts', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
-  centerId: uuid('center_id').references(() => centers.id),
+  centerId: uuid('center_id')
+    .references(() => centers.id)
+    .notNull(),
   courtNo: integer('court_no').notNull().unique(),
   status: courtStatusEnum('status').default('AVAILABLE').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
