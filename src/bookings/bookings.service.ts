@@ -186,14 +186,12 @@ export class BookingsService {
     const startTimeD = new Date(starTime);
     const endTimeD = new Date(endTime);
     return await this.db.query.bookings.findFirst({
-      where: (bookings, { eq, lte, gte, or, and }) =>
+      where: (bookings, { eq, lt, gt, and }) =>
         and(
           eq(bookings.courtId, courtId),
           ne(bookings.status, 'CANCELLED'),
-          or(
-            lte(bookings.startTime, startTimeD),
-            gte(bookings.endTime, endTimeD)
-          )
+          lt(bookings.startTime, endTimeD),
+          gt(bookings.endTime, startTimeD)
         ),
     });
   }
@@ -244,8 +242,8 @@ export class BookingsService {
 
       // If lock is acquired, proceed with booking and break the loop, remove the lock from Redis
       const { lockKey, lockValue } = lockAcquired;
-      const startTimeD = new Date(startTime);
-      const endTimeD = new Date(endTime);
+      const startTimeDT = new Date(startTime);
+      const endTimeDT = new Date(endTime);
 
       try {
         result = await this.db
@@ -253,8 +251,8 @@ export class BookingsService {
           .values({
             courtId: courtId,
             userId: userId,
-            startTime: startTimeD,
-            endTime: endTimeD,
+            startTime: startTimeDT,
+            endTime: endTimeDT,
             status: 'PENDING',
           })
           .returning();

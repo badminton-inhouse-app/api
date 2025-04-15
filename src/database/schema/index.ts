@@ -107,7 +107,7 @@ export const courts = pgTable('courts', {
   centerId: uuid('center_id')
     .references(() => centers.id)
     .notNull(),
-  courtNo: integer('court_no').notNull().unique(),
+  courtNo: integer('court_no').notNull(),
   status: courtStatusEnum('status').default('AVAILABLE').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),

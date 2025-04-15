@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
   Post,
   Query,
   Res,
@@ -15,6 +16,31 @@ import { SearchCentersQueryDto } from './dto/search-centers-query.dto';
 @Controller('centers')
 export class CentersController {
   constructor(private readonly centersService: CentersService) {}
+
+  @Get('/:id')
+  async findById(@Param('id') id: string, @Res() res: Response) {
+    if (!id) {
+      return {
+        message: 'Missing id',
+        status: 'error',
+      };
+    }
+
+    const result = await this.centersService.findById(id);
+
+    if (!result) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        message: 'Center not found',
+        status: 'error',
+      });
+    }
+
+    return res.status(HttpStatus.OK).json({
+      message: 'Center details fetched successfully',
+      status: 'success',
+      data: result,
+    });
+  }
 
   @Get('')
   async findAll(@Query() query: SearchCentersQueryDto, @Res() res: Response) {

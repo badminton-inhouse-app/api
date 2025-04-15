@@ -13,6 +13,41 @@ export class CentersService {
     private readonly geolocationService: GeolocationService
   ) {}
 
+  async findById(id: string) {
+    try {
+      const details = await this.db.query.centers.findFirst({
+        where: eq(centers.id, id),
+      });
+
+      if (!details) {
+        return null;
+      }
+
+      const courts = await this.db.query.courts.findMany({
+        where: (courts, { eq }) => eq(courts.centerId, id),
+      });
+
+      const courtIds = courts.map((court) => court.id);
+
+      const bookings = await this.db.query.bookings.findMany({
+        where: (bookings, { inArray, and, ne }) =>
+          and(
+            inArray(bookings.courtId, courtIds),
+            ne(bookings.status, 'CANCELLED')
+          ),
+      });
+
+      return {
+        details,
+        bookings,
+        courts,
+      };
+    } catch (err: any) {
+      console.log('Error at findAll centers: ', err);
+      return null;
+    }
+  }
+
   async findAll(query: SearchCentersQueryDto) {
     try {
       const { address, district, limit = 10, page = 1 } = query;
