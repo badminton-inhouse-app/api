@@ -12,10 +12,31 @@ import { CentersService } from './centers.service';
 import { CreateCenterDto } from './dto/create-center.dto';
 import { Response } from 'express';
 import { SearchCentersQueryDto } from './dto/search-centers-query.dto';
+import GetCenterBookingsQueryDto from './dto/get-center-bookings-query.dto';
 
 @Controller('centers')
 export class CentersController {
   constructor(private readonly centersService: CentersService) {}
+
+  @Get('/filters/values')
+  async getSearchCentersFiltersValues(
+    @Query('name') filterName: string,
+    @Res() res: Response
+  ) {
+    if (filterName && filterName !== 'district' && filterName !== 'city') {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        message: `Invalid filter's name`,
+        status: 'error',
+      });
+    }
+    const result =
+      await this.centersService.getSearchCentersFiltersValues(filterName);
+    return res.status(HttpStatus.OK).json({
+      message: 'Filter values fetched successfully',
+      status: 'success',
+      data: result,
+    });
+  }
 
   @Get('/:id')
   async findById(@Param('id') id: string, @Res() res: Response) {
@@ -37,6 +58,31 @@ export class CentersController {
 
     return res.status(HttpStatus.OK).json({
       message: 'Center details fetched successfully',
+      status: 'success',
+      data: result,
+    });
+  }
+
+  @Get('/:id/bookings')
+  async getCenterBookings(
+    @Param('id') id: string,
+    @Query() query: GetCenterBookingsQueryDto,
+    @Res() res: Response
+  ) {
+    const result = await this.centersService.getCenterBookings(
+      id,
+      query.status
+    );
+
+    if (!result) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        message: 'Cannot fetch center bookings. Recheck center id',
+        status: 'error',
+      });
+    }
+
+    return res.status(HttpStatus.OK).json({
+      message: 'Center bookings fetched successfully',
       status: 'success',
       data: result,
     });

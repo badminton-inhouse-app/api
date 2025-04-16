@@ -15,6 +15,7 @@ export class StripeController {
 
   @Post('/webhook')
   async handleStripeWebhook(@Req() req: Request) {
+    console.log('Received webhook request');
     if (!req.body) {
       throw new BadRequestException('Request body is missing.');
     }
@@ -22,6 +23,7 @@ export class StripeController {
     if (!sig) {
       throw new BadRequestException('Stripe signature is missing.');
     }
+    console.log('Received webhook:', req.body);
     await this.stripeService.handleWebhook(sig, req.body);
   }
 

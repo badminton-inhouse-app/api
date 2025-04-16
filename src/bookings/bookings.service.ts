@@ -3,8 +3,8 @@ import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
-import { bookings, courts } from '../database/schema';
-import { and, eq, ne } from 'drizzle-orm';
+import { bookings, centers, courts } from '../database/schema';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { RedisService } from '../redis/redis.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
 import { QueueService } from '../queue/queue.service';
@@ -28,9 +28,85 @@ export class BookingsService {
   ) {}
 
   async findById(id: string) {
-    return await this.db.query.bookings.findFirst({
-      where: (bookings, { eq }) => eq(bookings.id, id),
-    });
+    const result = await this.db
+      .select({
+        center: {
+          address: centers.address,
+          city: centers.city,
+          district: centers.district,
+          phoneNo: centers.phoneNo,
+          id: centers.id,
+          lat: centers.lat,
+          lng: centers.lng,
+          createdAt: centers.createdAt,
+          updatedAt: centers.updatedAt,
+        },
+        court: {
+          id: courts.id,
+          courtNo: courts.courtNo,
+          centerId: courts.centerId,
+          status: courts.status,
+          createdAt: courts.createdAt,
+          updatedAt: courts.updatedAt,
+        },
+        id: bookings.id,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        status: bookings.status,
+        courtId: bookings.courtId,
+        userId: bookings.userId,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+      })
+      .from(bookings)
+      .where(eq(bookings.id, id))
+      .leftJoin(courts, eq(courts.id, bookings.courtId))
+      .leftJoin(centers, eq(centers.id, courts.centerId))
+      .orderBy(desc(bookings.createdAt));
+
+    if (!result) {
+      return null;
+    }
+
+    return result[0];
+  }
+
+  async getUserBookings(userId: string) {
+    return await this.db
+      .select({
+        center: {
+          address: centers.address,
+          city: centers.city,
+          district: centers.district,
+          phoneNo: centers.phoneNo,
+          id: centers.id,
+          lat: centers.lat,
+          lng: centers.lng,
+          createdAt: centers.createdAt,
+          updatedAt: centers.updatedAt,
+        },
+        court: {
+          id: courts.id,
+          courtNo: courts.courtNo,
+          centerId: courts.centerId,
+          status: courts.status,
+          createdAt: courts.createdAt,
+          updatedAt: courts.updatedAt,
+        },
+        id: bookings.id,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        status: bookings.status,
+        courtId: bookings.courtId,
+        userId: bookings.userId,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+      })
+      .from(bookings)
+      .where(eq(bookings.userId, userId))
+      .leftJoin(courts, eq(courts.id, bookings.courtId))
+      .leftJoin(centers, eq(centers.id, courts.centerId))
+      .orderBy(desc(bookings.createdAt));
   }
 
   async updateStatus(
@@ -197,82 +273,72 @@ export class BookingsService {
   }
 
   async booking(bookingCenterDto: BookingCenterDto, userId: string) {
-    const { centerId, startTime, endTime } = bookingCenterDto;
+    const { centerId, startTime, endTime, courtId } = bookingCenterDto;
 
     if (this.checkIfTimeValid(startTime, endTime) === false) {
-      throw new Error('Invalid time. Please try again.');
+      throw new Error('Thời gian đặt không hợp lệ. Vui lòng kiểm tra lại.');
     }
 
-    // Check if any courts is available in the center
-    const availableCourts = await this.getAvailableCourtsByCenterId(centerId);
+    // Check overlap booking for the court
+    const overlapBooking = await this.getOverlapBooking(
+      courtId,
+      startTime,
+      endTime
+    );
 
-    if (availableCourts.length === 0) {
-      throw new Error('No courts available in this center.');
+    // Skip this court if it is overlapping with another booking
+    if (overlapBooking) {
+      throw new Error(
+        'Đã có lịch đặt khác trên sân này. Vui lòng chọn sân khác hoặc khung giờ khác.'
+      );
     }
-    let result: any[] = [];
-    // Iterate through available courts and try to acquire a lock
-    for (let i = 0; i < availableCourts.length; i++) {
-      const court = availableCourts[i];
-      const courtId = court.id;
 
-      // Check overlap booking for the court
-      const overlapBooking = await this.getOverlapBooking(
-        courtId,
-        startTime,
-        endTime
+    // Acquire a lock on the court
+    const lockAcquired = await this.pessimisticLock(
+      centerId,
+      courtId,
+      userId,
+      startTime
+    );
+
+    // If lock is not acquired, continue to the next court
+    if (!lockAcquired) {
+      throw new Error(
+        'Court is being booked by another user. Please try again later or select another court.'
       );
+    }
 
-      // Skip this court if it is overlapping with another booking
-      if (overlapBooking) {
-        continue;
-      }
+    // If lock is acquired, proceed with booking and break the loop, remove the lock from Redis
+    const { lockKey, lockValue } = lockAcquired;
+    const startTimeDT = new Date(startTime);
+    const endTimeDT = new Date(endTime);
 
-      // Acquire a lock on the court
-      const lockAcquired = await this.pessimisticLock(
-        centerId,
-        court.id,
-        userId,
-        startTime
-      );
+    try {
+      const result = await this.db
+        .insert(bookings)
+        .values({
+          courtId: courtId,
+          userId: userId,
+          startTime: startTimeDT,
+          endTime: endTimeDT,
+          status: 'PENDING',
+        })
+        .returning();
 
-      // If lock is not acquired, continue to the next court
-      if (!lockAcquired) {
-        continue;
-      }
-
-      // If lock is acquired, proceed with booking and break the loop, remove the lock from Redis
-      const { lockKey, lockValue } = lockAcquired;
-      const startTimeDT = new Date(startTime);
-      const endTimeDT = new Date(endTime);
-
-      try {
-        result = await this.db
-          .insert(bookings)
-          .values({
-            courtId: courtId,
-            userId: userId,
-            startTime: startTimeDT,
-            endTime: endTimeDT,
-            status: 'PENDING',
-          })
-          .returning();
-
-        if (result.length === 0) {
-          throw new Error('Failed to book court.');
-        }
-
-        // Add the booking to the queue for cancellation after 30 minutes without payment
-        const delayMs = 30 * 60 * 1000; // 30 minutes in milliseconds
-        await this.queueService.addCancelJob(result[0].id, delayMs);
-        break;
-      } catch (err: any) {
-        console.log('Error booking court: ', err);
+      if (result.length === 0) {
         throw new Error('Failed to book court.');
-      } finally {
-        await this.redisService.releaseLock(lockKey, lockValue);
       }
+      // Add the booking to the queue for cancellation after 30 minutes without payment
+      const delayMs = 30 * 60 * 1000; // 30 minutes in milliseconds
+      await this.queueService.addCancelJob(result[0].id, delayMs);
+
+      return result[0];
+    } catch (err: any) {
+      console.log('Error booking court: ', err);
+      throw new Error('Failed to book court.');
+    } finally {
+      await this.redisService.releaseLock(lockKey, lockValue);
     }
-    return result;
   }
 
   async createBookingPaymentSession(
@@ -298,6 +364,28 @@ export class BookingsService {
     const amount = 100000; // Replace with actual amount calculate from formula
 
     try {
+      const existedPaymentSession =
+        await this.db.query.paymentSessions.findFirst({
+          where: (paymentSessions, { eq }) =>
+            eq(paymentSessions.bookingId, bookingId),
+          orderBy: (paymentSessions, { desc }) =>
+            desc(paymentSessions.createdAt),
+        });
+
+      if (existedPaymentSession) {
+        const isSessionActive = await this.paymentsService.checkSessionActive(
+          existedPaymentSession.paymentSessionId.replace(
+            `${existedPaymentSession.paymentMethod}_`,
+            ''
+          ),
+          existedPaymentSession.paymentMethod
+        );
+
+        if (isSessionActive) {
+          return existedPaymentSession;
+        }
+      }
+
       return await this.paymentsService.createSession(
         userId,
         bookingId,
@@ -308,6 +396,36 @@ export class BookingsService {
       console.log('Error creating payment session:', err.message);
       throw new Error('Failed to create payment session.');
     }
+  }
+
+  async getBookingPaymentSession(userId: string, bookingId: string) {
+    const paymentSession = await this.db.query.paymentSessions.findFirst({
+      where: (paymentSessions, { eq }) =>
+        eq(paymentSessions.bookingId, bookingId),
+      orderBy: (paymentSessions, { desc }) => desc(paymentSessions.createdAt),
+    });
+
+    if (!paymentSession) {
+      throw new Error('Payment session not found');
+    }
+
+    if (userId !== paymentSession.userId) {
+      throw new Error('You are not authorized to view this payment session');
+    }
+
+    const isSessionActive = await this.paymentsService.checkSessionActive(
+      paymentSession.paymentSessionId.replace(
+        `${paymentSession.paymentMethod}_`,
+        ''
+      ),
+      paymentSession.paymentMethod
+    );
+
+    if (!isSessionActive) {
+      throw new Error('Payment session not found or expired');
+    }
+
+    return paymentSession;
   }
 
   generateSignature(secret: string, jsonData: any) {

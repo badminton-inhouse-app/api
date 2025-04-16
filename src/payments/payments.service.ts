@@ -13,6 +13,33 @@ export class PaymentsService {
     private readonly stripeService: StripeService
   ) {}
 
+  async findById(id: string) {
+    const paymentSession = await this.db.query.paymentSessions.findFirst({
+      where: (paymentSessions, { eq }) => eq(paymentSessions.id, id),
+    });
+
+    if (!paymentSession) {
+      throw new Error('Payment session not found');
+    }
+
+    const booking = await this.db.query.bookings.findFirst({
+      where: (bookings, { eq }) => eq(bookings.id, paymentSession.bookingId),
+    });
+
+    if (!booking) {
+      throw new Error('Booking with this payment session not found');
+    }
+
+    if (booking.status !== 'PENDING') {
+      throw new Error('Booking status is either PAID or CANCELLED');
+    }
+
+    return {
+      paymentSession,
+      userId: booking.userId,
+    };
+  }
+
   async createSession(
     userId: string,
     bookingId: string,
@@ -58,7 +85,10 @@ export class PaymentsService {
         throw new Error('Unsupported payment method.');
     }
 
-    if (!paymentSessionId || !clientSecret) {
+    if (
+      !paymentSessionId ||
+      (paymentMethod === PaymentMethod.STRIPE && !clientSecret)
+    ) {
       throw new Error('Failed to create payment session.');
     }
 
@@ -70,6 +100,8 @@ export class PaymentsService {
         paymentMethod,
         paymentSessionId: `${paymentMethod}_${paymentSessionId}`,
         amount: amount.toFixed(2),
+        clientSecret:
+          paymentMethod === PaymentMethod.STRIPE ? clientSecret : null,
         status: 'PENDING',
       });
 
@@ -107,7 +139,7 @@ export class PaymentsService {
     await this.db
       .update(paymentSessions)
       .set({ status: 'COMPLETED' })
-      .where(eq(paymentSessions.id, paymentSession.id));
+      .where(eq(paymentSessions.paymentSessionId, paymentSessionId));
 
     return { success: true };
   }
@@ -129,5 +161,20 @@ export class PaymentsService {
       .where(eq(paymentSessions.id, paymentSession.id));
 
     return { success: true };
+  }
+
+  async checkSessionActive(paymentSessionId: string, paymentMethod: string) {
+    if (paymentMethod === PaymentMethod.STRIPE.toString()) {
+      const paymentIntent =
+        await this.stripeService.retrieveSession(paymentSessionId);
+
+      if (!paymentIntent) {
+        return false;
+      }
+
+      return !['succeeded', 'canceled'].includes(paymentIntent.status);
+    }
+
+    return null;
   }
 }

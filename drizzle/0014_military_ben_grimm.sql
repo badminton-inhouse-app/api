@@ -1,0 +1,1 @@
+ALTER TABLE "payment_sessions" ALTER COLUMN "payment_session_id" SET NOT NULL;

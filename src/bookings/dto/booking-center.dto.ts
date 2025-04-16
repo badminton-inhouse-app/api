@@ -6,6 +6,10 @@ export class BookingCenterDto {
   @IsNotEmpty()
   centerId: string;
 
+  @IsString()
+  @IsNotEmpty()
+  courtId: string;
+
   @IsNumber()
   @Type(() => Number)
   startTime: number;

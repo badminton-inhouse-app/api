@@ -164,9 +164,10 @@ export const paymentSessions = pgTable('payment_sessions', {
   bookingId: uuid('booking_id')
     .references(() => bookings.id)
     .notNull(),
+  clientSecret: text('client_secret'),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum('payment_method').notNull(),
-  paymentSessionId: varchar('payment_session_id').unique(),
+  paymentSessionId: varchar('payment_session_id').unique().notNull(),
   status: bookingStatusEnum('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at'),

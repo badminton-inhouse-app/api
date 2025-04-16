@@ -57,7 +57,12 @@ export class StripeService {
   }
 
   async retrieveSession(paymentIntentId: string) {
-    return this.stripe.paymentIntents.retrieve(paymentIntentId);
+    try {
+      return await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    } catch (err: any) {
+      console.log('Error retrieving Stripe payment intent: ', err);
+      return null;
+    }
   }
 
   async handleWebhook(sig: string, payload: Buffer) {
@@ -115,7 +120,7 @@ export class StripeService {
           received: false,
         };
       }
-
+      console.log('Payment session completed');
       // Emit payment completed event
       this.eventEmitter.emit(
         'payment.completed',
