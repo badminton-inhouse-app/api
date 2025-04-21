@@ -52,18 +52,20 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new Error(ERROR_MESSAGE.INVALID_USERNAME_PASSWOR);
+        return new Error(ERROR_MESSAGE.INVALID_USERNAME_PASSWOR);
       }
 
       const isValidPassword = await bcryptjs.compare(password, user.password);
+
       if (!isValidPassword) {
-        throw new Error(ERROR_MESSAGE.INVALID_USERNAME_PASSWOR);
+        return new Error(ERROR_MESSAGE.INVALID_USERNAME_PASSWOR);
       }
+
       const token = this.generateJWT(user.id);
       return token;
-    } catch (error: any) {
-      console.log('Error at login: ' + error.message);
-      throw new Error(ERROR_MESSAGE.INTERNAL_SERVER_ERROR);
+    } catch (err: any) {
+      console.log('Error logging in: ' + err.message);
+      return new Error(ERROR_MESSAGE.INTERNAL_SERVER_ERROR);
     }
   }
 }

@@ -1,5 +1,4 @@
 import { NestFactory } from '@nestjs/core';
-import * as cors from 'cors';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -20,7 +19,11 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, document);
 
   app.use(cookieParser());
-  app.use(cors({ origin: '*' }));
+  app.enableCors({
+    origin: 'http://localhost:3001',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  });
   // app.use(express.raw({ type: '*/*' }));
   app.use((req, res, next) => {
     if (req.originalUrl === '/api/stripe/webhook') {

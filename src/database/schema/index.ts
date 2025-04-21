@@ -65,7 +65,7 @@ export const voucherStatusEnum = pgEnum('voucher_status', [
 export const voucherTypeEnum = pgEnum('voucher_type', [
   'TOTAL_BOOKING_PRICE',
   'PER_BOOKING_HOUR_PRICE',
-  'ADD_FREE_HOURS', //meaning if user book 2 hours, he/she will only need to pay for 1 hour
+  'FREE_HOURS', //meaning if user book m hours, user will only get to pay m - n hours (n is the value of voucher) (condition: m >= n)
 ]);
 
 export const users = pgTable('users', {
@@ -186,7 +186,7 @@ export const userPoints = pgTable('user_points', {
 export const vouchers = pgTable('vouchers', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   name: text('name').notNull().default(''),
-  desc: text('name').notNull().default(''),
+  desc: text('desc').notNull().default(''),
   type: voucherTypeEnum('type').notNull().default('TOTAL_BOOKING_PRICE'),
   requiredPoints: integer('required_points').notNull().default(0),
   discountType: discountTypeEnum('discount_type').notNull().default('FIXED'),

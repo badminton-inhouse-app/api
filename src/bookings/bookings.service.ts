@@ -4,7 +4,7 @@ import * as QRCode from 'qrcode';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
 import { bookings, centers, courts } from '../database/schema';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { RedisService } from '../redis/redis.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
 import { QueueService } from '../queue/queue.service';
@@ -14,6 +14,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookingCompletedEvent } from './events/booking-completed.event';
 import { ConfigService } from '@nestjs/config';
 import * as moment from 'moment';
+import { GetUserBookingsQueryDto } from './dto/get-user-bookings-query.dto';
 
 @Injectable()
 export class BookingsService {
@@ -71,8 +72,10 @@ export class BookingsService {
     return result[0];
   }
 
-  async getUserBookings(userId: string) {
-    return await this.db
+  async getUserBookings(userId: string, query: GetUserBookingsQueryDto) {
+    const { cursor, limit = 5 } = query;
+
+    const result = await this.db
       .select({
         center: {
           address: centers.address,
@@ -103,10 +106,22 @@ export class BookingsService {
         updatedAt: bookings.updatedAt,
       })
       .from(bookings)
-      .where(eq(bookings.userId, userId))
+      .where(
+        and(
+          eq(bookings.userId, userId),
+          cursor ? lt(bookings.createdAt, new Date(cursor)) : undefined
+        )
+      )
       .leftJoin(courts, eq(courts.id, bookings.courtId))
       .leftJoin(centers, eq(centers.id, courts.centerId))
+      .limit(limit + 1)
       .orderBy(desc(bookings.createdAt));
+
+    return {
+      items: result.slice(0, limit),
+      next_cursor: result.length > limit ? result[limit - 1].createdAt : null,
+      limit,
+    };
   }
 
   async updateStatus(

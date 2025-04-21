@@ -2,9 +2,9 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import * as bcryptjs from 'bcryptjs';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
-import { users } from '../database/schema';
+import { userPoints, users } from '../database/schema';
 import { RegisterDto } from './dto/register.dto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 @Injectable()
 export class UsersService {
@@ -13,6 +13,45 @@ export class UsersService {
   async getUsers() {
     const user = await this.db.select().from(users);
     return user;
+  }
+
+  async getUserRewards(userId: string) {
+    try {
+      const result = await this.db
+        .select({
+          total: sql<number>`COALESCE(SUM(${userPoints.points}), 0)`,
+        })
+        .from(userPoints)
+        .where(eq(userPoints.userId, userId))
+        .execute();
+
+      const totalPoints = result[0]?.total ?? 0;
+
+      const unlockableVouchers = await this.db.query.vouchers.findMany({
+        where: (v, { lte }) => lte(v.requiredPoints, totalPoints),
+      });
+
+      const lockedVouchers = await this.db.query.vouchers.findMany({
+        where: (v, { gt }) => gt(v.requiredPoints, totalPoints),
+      });
+
+      const ownedVouchers = await this.db.query.userVouchers.findMany({
+        where: (v, { eq, and }) => and(eq(v.userId, userId)),
+        columns: {
+          voucherId: true,
+        },
+      });
+
+      return {
+        total_points: Number(totalPoints),
+        unlockable_vouchers: unlockableVouchers,
+        owned_vouchers: ownedVouchers,
+        locked_vouchers: lockedVouchers,
+      };
+    } catch (err: any) {
+      console.log('Error fetching user rewards: ', err);
+      return null;
+    }
   }
 
   async findByUsername(username: string) {

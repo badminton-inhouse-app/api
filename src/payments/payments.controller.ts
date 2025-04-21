@@ -1,15 +1,29 @@
-import { Controller, Get, HttpStatus, Param, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { Response } from 'express';
+import AccessTokenGuard from 'src/auth/guards/access-token.guard';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  @UseGuards(AccessTokenGuard)
   @Get('/payment-sessions/:id')
-  async findById(@Param('id') id: string, @Res() res: Response) {
+  async findById(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response
+  ) {
     try {
-      const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
+      const userId = req.userId;
       const result = await this.paymentsService.findById(id);
 
       if (userId !== result.userId) {

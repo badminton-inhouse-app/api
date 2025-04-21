@@ -6,21 +6,30 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingCenterDto } from './dto/booking-center.dto';
 import { Response } from 'express';
 import { CreateBookingPaymentSessionDto } from './dto/create-booking-payment-session.dto';
+import AccessTokenGuard from 'src/auth/guards/access-token.guard';
+import { GetUserBookingsQueryDto } from './dto/get-user-bookings-query.dto';
 
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
+  @UseGuards(AccessTokenGuard)
   @Get('/:id')
-  async findById(@Param('id') id: string, @Res() res: Response) {
+  async findById(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: Response
+  ) {
     try {
-      const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
+      const userId = req.userId;
       const result = await this.bookingsService.findById(id);
 
       if (!result) {
@@ -49,10 +58,15 @@ export class BookingsController {
     }
   }
 
+  @UseGuards(AccessTokenGuard)
   @Get('')
-  async getUserBookings(@Res() res: Response) {
-    const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
-    const result = await this.bookingsService.getUserBookings(userId);
+  async getUserBookings(
+    @Query() query: GetUserBookingsQueryDto,
+    @Req() req: any,
+    @Res() res: Response
+  ) {
+    const userId = req.userId;
+    const result = await this.bookingsService.getUserBookings(userId, query);
     return res.status(HttpStatus.OK).json({
       message: `User's bookings fetched successfully`,
       data: result,
@@ -60,10 +74,15 @@ export class BookingsController {
     });
   }
 
+  @UseGuards(AccessTokenGuard)
   @Post()
-  async createBooking(@Body() body: BookingCenterDto, @Res() res: Response) {
+  async createBooking(
+    @Body() body: BookingCenterDto,
+    @Req() req: any,
+    @Res() res: Response
+  ) {
     try {
-      const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
+      const userId = req.userId;
       const result = await this.bookingsService.booking(body, userId);
 
       return res.status(HttpStatus.CREATED).json({
@@ -76,12 +95,14 @@ export class BookingsController {
     }
   }
 
+  @UseGuards(AccessTokenGuard)
   @Get('/:bookingId/payment-session')
   async getBookingPaymentSession(
     @Param('bookingId') bookingId: string,
+    @Req() req: any,
     @Res() res: Response
   ) {
-    const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
+    const userId = req.userId;
     try {
       const result = await this.bookingsService.getBookingPaymentSession(
         userId,
@@ -114,13 +135,16 @@ export class BookingsController {
     }
   }
 
+  @UseGuards(AccessTokenGuard)
   @Post('/:bookingId/pay')
   async createBookingPaymentSession(
     @Param('bookingId') bookingId: string,
     @Body() body: CreateBookingPaymentSessionDto,
+    @Req() req: any,
     @Res() res: Response
   ) {
-    const userId = 'eba4ac02-e0d4-44dc-8232-3d053951a1da'; // Replace with actual user ID from token
+    const userId = req.userId;
+    console.log(userId);
     try {
       const result = await this.bookingsService.createBookingPaymentSession(
         userId,

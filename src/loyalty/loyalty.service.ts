@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DRIZZLE } from '../database/database.module';
 import { DrizzleDB } from '../database/types/drizzle';
-import { userPoints, userVouchers } from '../database/schema';
+import { userPoints } from '../database/schema';
 import { eq, sql } from 'drizzle-orm';
 
 @Injectable()
@@ -19,41 +19,6 @@ export class LoyaltyService {
       points,
       type,
       metadata,
-    });
-
-    //Get user's ttotal points
-    const totalPointsResult = await this.getUserPoints(userId);
-
-    //Get all unlockable vouchers base on total points and voucher's required points
-    const unlockableVouchers = await this.db.query.vouchers.findMany({
-      where: (v, { lte }) => lte(v.requiredPoints, totalPointsResult),
-    });
-
-    //Check what voucher are already owned by user
-    const ownedVouchers = await this.db.query.userVouchers.findMany({
-      where: (v, { eq }) => eq(v.userId, userId),
-      columns: {
-        voucherId: true,
-      },
-    });
-    const ownedVoucherIds = ownedVouchers.map((v) => v.voucherId);
-
-    const newVouchers = unlockableVouchers.filter(
-      (voucher) => !ownedVoucherIds.includes(voucher.id)
-    );
-
-    const now = new Date();
-    const values = newVouchers.map((voucher) => ({
-      userId,
-      voucherId: voucher.id,
-      status: 'CLAIMED' as any,
-      claimedAt: now,
-    }));
-
-    if (values.length === 0) return;
-
-    await this.db.transaction(async (trx) => {
-      await trx.insert(userVouchers).values(values);
     });
   }
 

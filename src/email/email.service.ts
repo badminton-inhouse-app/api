@@ -73,6 +73,7 @@ export class EmailService {
     const center = await this.db.query.centers.findFirst({
       where: (centers, { eq }) => eq(centers.id, court.centerId),
     });
+
     if (!center) {
       throw new Error('Center not found');
     }
@@ -122,10 +123,10 @@ export class EmailService {
                   </tr>
                   <br />
                   <tr>
-                      <td><strong>Thời gian chơi:</strong></td>
+                      <td><strong>Khung giờ đặt sân:</strong></td>
                   </tr>
                   <tr>
-                      <td>${new Date(booking.startTime).getHours()} giờ - ${new Date(booking.endTime).getHours()} giờ</td>                 
+                      <td>${moment(booking.startTime).format('HH:mm')} - ${moment(booking.endTime).format('HH:mm')}</td>                 
                   </tr>
                   <br />
                   <tr>

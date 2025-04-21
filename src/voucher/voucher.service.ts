@@ -4,6 +4,7 @@ import { DrizzleDB } from '../database/types/drizzle';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { userVouchers, vouchers } from '../database/schema';
 import { eq } from 'drizzle-orm';
+import CreateVoucherDto from './dto/create-voucher.dto';
 
 @Injectable()
 export class VoucherService {
@@ -11,6 +12,34 @@ export class VoucherService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly loyaltyService: LoyaltyService
   ) {}
+
+  async create(createVoucherDto: CreateVoucherDto) {
+    try {
+      console.log('createVoucherDto: ', createVoucherDto);
+      const voucher = await this.db
+        .insert(vouchers)
+        .values({
+          validFrom: new Date(createVoucherDto.validFrom),
+          validTo: new Date(createVoucherDto.validTo),
+          name: createVoucherDto.name,
+          desc: createVoucherDto.desc,
+          discountType: createVoucherDto.discountType as any,
+          discountValue: createVoucherDto.discountValue,
+          requiredPoints: createVoucherDto.requiredPoints,
+          type: createVoucherDto.type as any,
+        })
+        .returning();
+
+      if (voucher.length === 0) {
+        return null;
+      }
+
+      return voucher[0];
+    } catch (err: any) {
+      console.log('Error creating voucher: ', err);
+      return null;
+    }
+  }
 
   async getAvailableVouchers(userId: string) {
     const points = await this.loyaltyService.getUserPoints(userId);
